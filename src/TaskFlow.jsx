@@ -816,7 +816,7 @@ export default function TaskFlow() {
     setGmailLoading(l => ({ ...l, [tokenRecord.id]: true }));
     try {
       const token = await getValidToken(tokenRecord);
-      const listResp = await fetch("https://www.googleapis.com/gmail/v1/users/me/messages?q=is:unread in:inbox&maxResults=20", {
+      const listResp = await fetch("https://www.googleapis.com/gmail/v1/users/me/messages?q=is:starred&maxResults=20", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const listData = await listResp.json();
@@ -1301,7 +1301,7 @@ export default function TaskFlow() {
 
               {/* Empty */}
               {loaded && !loading && emails.length === 0 && (
-                <div style={{ padding: "12px 13px", fontSize: 14, color: D.textFaint }}>No unread emails</div>
+                <div style={{ padding: "12px 13px", fontSize: 14, color: D.textFaint }}>No starred emails</div>
               )}
 
               {/* Email rows */}
