@@ -1763,7 +1763,7 @@ export default function TaskFlow() {
               </div>
             </div>
 
-            <div style={{ borderTop: `0.5px solid ${D.border}`, flexShrink: 0 }}>
+            <div style={{ borderTop: `0.5px solid ${D.border}`, flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
               <div onClick={() => navTo("gmail")} style={mItem(view === "gmail")}><Envelope size={16} weight="light" />Gmail</div>
               <div onClick={() => navTo("settings")} style={mItem(view === "settings")}><Gear size={16} weight="light" />Settings</div>
               <div onClick={() => supabase.auth.signOut()} style={{ ...mItem(false), color: D.textFaint, fontSize: 13 }}>Sign out</div>
