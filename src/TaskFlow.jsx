@@ -1751,7 +1751,7 @@ export default function TaskFlow() {
           {/* FAB */}
           {showFab && (
             <button onClick={openNewTask} aria-label="New task"
-              style={{ position: "absolute", bottom: 80, right: 14, width: 52, height: 52, borderRadius: "50%", background: D.accent, border: "none", color: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: `0 2px 12px ${D.accentShadow}`, zIndex: 10 }}>
+              style={{ position: "absolute", bottom: 80, right: 24, width: 52, height: 52, borderRadius: "50%", background: D.accent, border: "none", color: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: `0 2px 12px ${D.accentShadow}`, zIndex: 10 }}>
               <svg width="20" height="20" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <line x1="13" y1="3" x2="13" y2="23" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
                 <line x1="3" y1="13" x2="23" y2="13" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
