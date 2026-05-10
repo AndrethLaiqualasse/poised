@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, createContext, useContext } from "react";
-import { Tray, CalendarDot, CalendarPlus, CalendarDots, CalendarBlank, SquaresFour, Calendar, CheckCircle, FolderSimple, Hash, Gear, Envelope, UserCircle, Briefcase, ArrowCounterClockwise } from "@phosphor-icons/react";
+import { Tray, CalendarDot, CalendarPlus, CalendarDots, CalendarBlank, SquaresFour, Calendar, CheckCircle, FolderSimple, Hash, Gear, Envelope, UserCircle, Briefcase, ArrowCounterClockwise, ArrowsClockwise } from "@phosphor-icons/react";
 import { supabase } from "./supabase.js";
 
 // Load Tabler icons from CDN
@@ -220,12 +220,14 @@ function TaskRow({ task, clientLabel, onDone, onEdit, onDelete, onSelect, isSele
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
   const isHoriz = useRef(null);
+  const swipeOffset = useRef(0); // swipeX value at gesture start
   const THRESHOLD = 80;
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
     isHoriz.current = null;
+    swipeOffset.current = swipeX; // capture current position
     setAnimating(false);
   };
 
@@ -234,11 +236,15 @@ function TaskRow({ task, clientLabel, onDone, onEdit, onDelete, onSelect, isSele
     const dx = e.touches[0].clientX - touchStartX.current;
     const dy = e.touches[0].clientY - touchStartY.current;
     if (isHoriz.current === null) isHoriz.current = Math.abs(dx) > Math.abs(dy);
-    if (isHoriz.current && dx < 0) setSwipeX(Math.max(dx, -110));
+    if (isHoriz.current) {
+      // allow right-swipe to close a revealed delete button
+      setSwipeX(Math.min(0, Math.max(swipeOffset.current + dx, -110)));
+    }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e) => {
     setAnimating(true);
+    if (isHoriz.current) e.stopPropagation(); // prevent sidebar swipe handler from firing
     if (swipeX <= -THRESHOLD) {
       setSwipeX(-90); // stop at revealed state — user must tap delete to confirm
     } else {
@@ -1183,7 +1189,7 @@ export default function TaskFlow() {
   const showFab = !["settings", "gmail"].includes(view);
   const showFilters = VIEWS_WITH_FILTERS.includes(view);
 
-  const viewTitles = { inbox: "Inbox", today: "Today", tomorrow: "Tomorrow", all: "All Tasks", week: "This Week", month: "This Month", cal: "Calendar", completed: "Completed", business: "Business", personal: "Personal", gmail: "Gmail", settings: "Settings", client: clientName(currentClient), project: projectById(currentProj)?.name || currentProj, "tag-view": `#${currentTag}` };
+  const viewTitles = { inbox: "Inbox", today: "Today", tomorrow: "Tomorrow", all: "All Tasks", week: "This Week", month: "This Month", cal: "Calendar", recurring: "Recurring", completed: "Completed", business: "Business", personal: "Personal", gmail: "Gmail", settings: "Settings", client: clientName(currentClient), project: projectById(currentProj)?.name || currentProj, "tag-view": `#${currentTag}` };
 
   const removeTask = async (id) => {
     await supabase.from("tasks").delete().eq("id", id);
@@ -1377,12 +1383,32 @@ export default function TaskFlow() {
   }
 
   function calDayClick(ds) {
-    let list = tasks.filter(t => !t.done && t.due === ds);
+    let list = tasks.filter(t => !t.done && t.due === ds && t.ctx === globalCtx);
     list = applyFilters(list, calFilters);
     const dt = new Date(ds + "T00:00:00");
     setCalDayLabel(dt.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }));
     setCalDayTasks(list);
     setSelectedCalDay(ds);
+  }
+
+  function renderRecurring() {
+    const RECUR_LABELS = { daily: "Daily", weekly: "Weekly", monthly: "Monthly", yearly: "Yearly" };
+    const list = tasks.filter(t => !t.done && t.ctx === globalCtx && t.recurring && t.recurring !== "none");
+    if (!list.length) return <div style={{ textAlign: "center", padding: 44, color: D.textMuted, fontSize: 15 }}>No recurring tasks</div>;
+    return (
+      <div>
+        {["daily", "weekly", "monthly", "yearly"].map(freq => {
+          const group = list.filter(t => t.recurring === freq).sort((a, b) => (a.due || "").localeCompare(b.due || "") || a.subject.localeCompare(b.subject));
+          if (!group.length) return null;
+          return (
+            <div key={freq}>
+              <SectionHeader>{RECUR_LABELS[freq]}</SectionHeader>
+              {renderTaskList(group)}
+            </div>
+          );
+        })}
+      </div>
+    );
   }
 
   function renderCalendar() {
@@ -1713,6 +1739,7 @@ export default function TaskFlow() {
     if (view === "settings") return renderSettings();
     if (view === "completed") return renderCompleted();
     if (view === "cal") return renderCalendar();
+    if (view === "recurring") return renderRecurring();
     if (view === "week") return renderWeek();
     if (view === "month") return renderMonth();
     if (view === "project") return renderProject();
@@ -1783,6 +1810,7 @@ export default function TaskFlow() {
                   { id: "month", label: "This Month", icon: CalendarBlank },
                   { id: "all", label: "All Tasks", icon: SquaresFour },
                   { id: "cal", label: "Calendar", icon: Calendar },
+                  { id: "recurring", label: "Recurring", icon: ArrowsClockwise },
                   { id: "completed", label: "Completed", icon: CheckCircle },
                 ].map(m => (
                   <div key={m.id} onClick={() => navTo(m.id)} style={mItem(view === m.id)}><m.icon size={16} weight="light" />{m.label}</div>
