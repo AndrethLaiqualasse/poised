@@ -343,6 +343,21 @@ function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, pro
   const [ctx, setCtx] = useState(defaultCtx);
   const [showNewProj, setShowNewProj] = useState(false);
   const [newProjName, setNewProjName] = useState("");
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStartY = useRef(null);
+
+  const handleDragStart = (e) => { dragStartY.current = e.touches[0].clientY; setDragging(true); };
+  const handleDragMove = (e) => {
+    if (dragStartY.current === null) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    if (dy > 0) setDragY(dy);
+  };
+  const handleDragEnd = () => {
+    setDragging(false);
+    if (dragY > 80) { setDragY(0); dragStartY.current = null; onClose(); }
+    else { setDragY(0); dragStartY.current = null; }
+  };
 
   useEffect(() => {
     if (open) {
@@ -399,9 +414,9 @@ function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, pro
 
   return (
     <div onClick={handleClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 50, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: D.bgSurface, borderRadius: "16px 16px 0 0", maxHeight: "92%", display: "flex", flexDirection: "column", border: `0.5px solid ${D.borderMed}` }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: D.bgHover, margin: "9px auto 0" }} />
-        <div style={{ display: "flex", alignItems: "center", padding: "11px 13px 0", gap: 8 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: D.bgSurface, borderRadius: "16px 16px 0 0", maxHeight: "92%", display: "flex", flexDirection: "column", border: `0.5px solid ${D.borderMed}`, transform: `translateY(${dragY}px)`, transition: dragging ? "none" : "transform 0.25s ease" }}>
+        <div onTouchStart={handleDragStart} onTouchMove={handleDragMove} onTouchEnd={handleDragEnd} style={{ width: 36, height: 4, borderRadius: 2, background: D.bgHover, margin: "9px auto 0", cursor: "grab", touchAction: "none" }} />
+        <div onTouchStart={handleDragStart} onTouchMove={handleDragMove} onTouchEnd={handleDragEnd} style={{ display: "flex", alignItems: "center", padding: "11px 13px 0", gap: 8, touchAction: "none" }}>
           <button onClick={handleClose} style={{ background: "none", border: "none", cursor: "pointer", color: D.textMuted, display: "flex", alignItems: "center", padding: "0 2px", flexShrink: 0 }}>✕</button>
           <div style={{ flex: 1, fontSize: 16, fontWeight: 600, color: D.text, textAlign: "center" }}>{isEdit ? "Edit task" : "New task"}</div>
           <button onClick={handleSave} disabled={!form.subject.trim()} style={{ background: "none", border: "none", cursor: form.subject.trim() ? "pointer" : "default", color: form.subject.trim() ? D.accent : D.textFaint, fontSize: 15, fontWeight: 600, padding: "0 2px", flexShrink: 0, transition: "color .15s" }}>Save</button>
