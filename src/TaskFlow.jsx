@@ -742,6 +742,12 @@ export default function TaskFlow() {
   useEffect(() => {
     if (!user) { setTasks([]); setProjects([]); setClients([]); setGmailTokens([]); return; }
     const load = async () => {
+      // Purge completed tasks older than 30 days
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 30);
+      const cutoffStr = cutoff.toLocaleDateString("en-CA");
+      await supabase.from("tasks").delete().eq("done", true).lt("done_at", cutoffStr);
+
       const [{ data: t }, { data: p }, { data: c }, { data: g }] = await Promise.all([
         supabase.from("tasks").select("*").order("created_at", { ascending: true }),
         supabase.from("projects").select("*").order("name", { ascending: true }),
