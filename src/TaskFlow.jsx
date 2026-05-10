@@ -1772,7 +1772,7 @@ export default function TaskFlow() {
 
           {/* TOPBAR */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px", paddingTop: "env(safe-area-inset-top)", height: "calc(48px + env(safe-area-inset-top))", borderBottom: `0.5px solid ${D.border}`, flexShrink: 0 }}>
-            <button onClick={() => setMenuOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: D.text, display: "flex", alignItems: "center", fontSize: 22 }}>☰</button>
+            <button onClick={() => setMenuOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: D.text, display: "flex", alignItems: "center", fontSize: 26 }}>☰</button>
             <h2 style={{ flex: 1, fontSize: 17, fontWeight: 600, color: D.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{viewTitles[view] || view}</h2>
             {view === "completed" && (
               <button onClick={async () => { const ids = tasks.filter(t => t.done).map(t => t.id); if (ids.length) await supabase.from("tasks").delete().in("id", ids); setTasks(ts => ts.filter(t => !t.done)); }}
