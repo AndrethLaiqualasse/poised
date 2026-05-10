@@ -660,6 +660,9 @@ export default function TaskFlow() {
   const [gmailEmails, setGmailEmails] = useState({});     // { tokenId: [emailObj] }
   const [dismissedEmailIds, setDismissedEmailIds] = useState(new Set());
   const [gmailLoading, setGmailLoading] = useState({});
+  const [expandedEmailId, setExpandedEmailId] = useState(null);
+  const [emailBodies, setEmailBodies] = useState({});     // { messageId: plainText }
+  const [bodyLoading, setBodyLoading] = useState({});
   const [newInputs, setNewInputs] = useState({});
   const [newProjForm, setNewProjForm] = useState({ name: "", ctx: "business", client_id: "" });
   const [newClientForm, setNewClientForm] = useState({ name: "", ctx: "business" });
@@ -785,6 +788,26 @@ export default function TaskFlow() {
     return data.access_token;
   }
 
+  function stripHtml(html) {
+    return html
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<\/div>/gi, "\n")
+      .replace(/<\/tr>/gi, "\n")
+      .replace(/<\/li>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
   function extractBody(msg) {
     const findPart = (parts, mimeType) => {
       if (!parts) return null;
@@ -794,14 +817,22 @@ export default function TaskFlow() {
       }
       return null;
     };
+    // Prefer plain text; fall back to HTML (stripped)
     let b64 = null;
+    let isHtml = false;
     if (msg.payload?.mimeType === "text/plain" && msg.payload.body?.data) {
       b64 = msg.payload.body.data;
+    } else if (msg.payload?.mimeType === "text/html" && msg.payload.body?.data) {
+      b64 = msg.payload.body.data; isHtml = true;
     } else {
       b64 = findPart(msg.payload?.parts, "text/plain");
+      if (!b64) { b64 = findPart(msg.payload?.parts, "text/html"); isHtml = true; }
     }
     if (!b64) return "";
-    try { return atob(b64.replace(/-/g, "+").replace(/_/g, "/")).trim(); } catch (_) { return ""; }
+    try {
+      const decoded = atob(b64.replace(/-/g, "+").replace(/_/g, "/")).trim();
+      return isHtml ? stripHtml(decoded) : decoded;
+    } catch (_) { return ""; }
   }
 
   async function fetchEmailBody(tokenRecord, messageId) {
@@ -810,6 +841,22 @@ export default function TaskFlow() {
       headers: { Authorization: `Bearer ${token}` },
     });
     return resp.json();
+  }
+
+  async function expandEmail(email, tokenRecord) {
+    // Toggle closed
+    if (expandedEmailId === email.id) { setExpandedEmailId(null); return; }
+    setExpandedEmailId(email.id);
+    // Already cached
+    if (emailBodies[email.id] !== undefined) return;
+    setBodyLoading(l => ({ ...l, [email.id]: true }));
+    try {
+      const fullMsg = await fetchEmailBody(tokenRecord, email.id);
+      setEmailBodies(b => ({ ...b, [email.id]: extractBody(fullMsg) || "(Empty)" }));
+    } catch (_) {
+      setEmailBodies(b => ({ ...b, [email.id]: "(Could not load body)" }));
+    }
+    setBodyLoading(l => ({ ...l, [email.id]: false }));
   }
 
   async function fetchEmailsForAccount(tokenRecord) {
@@ -1305,31 +1352,51 @@ export default function TaskFlow() {
               )}
 
               {/* Email rows */}
-              {emails.map(email => (
-                <div key={email.id} style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 13px", borderBottom: `0.5px solid ${D.border}` }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: email.unread ? 600 : 500, color: D.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {senderLabel(email.from)}
+              {emails.map(email => {
+                const isExpanded = expandedEmailId === email.id;
+                return (
+                  <div key={email.id} style={{ borderBottom: `0.5px solid ${D.border}` }}>
+                    {/* Tappable header row */}
+                    <div onClick={() => expandEmail(email, tokenRecord)}
+                      style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 13px", cursor: "pointer" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: email.unread ? 600 : 500, color: D.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {senderLabel(email.from)}
+                        </div>
+                        <div style={{ fontSize: 14, color: email.unread ? D.text : D.textFaint, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {email.subject}
+                        </div>
+                        {!isExpanded && (
+                          <div style={{ fontSize: 12, color: D.textFaint, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {email.snippet}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5, flexShrink: 0 }}>
+                        <button onClick={e => { e.stopPropagation(); createTaskFromEmail(email, tokenRecord); }}
+                          style={{ fontSize: 13, padding: "3px 8px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.textMuted, cursor: "pointer" }}>
+                          + Task
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); dismissEmail(email.id); }}
+                          style={{ fontSize: 13, padding: "3px 8px", borderRadius: 8, border: `0.5px solid ${D.border}`, background: "transparent", color: D.textFaint, cursor: "pointer" }}>
+                          ✕
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ fontSize: 14, color: email.unread ? D.text : D.textFaint, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {email.subject}
-                    </div>
-                    <div style={{ fontSize: 12, color: D.textFaint, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {email.snippet}
-                    </div>
+                    {/* Expanded body */}
+                    {isExpanded && (
+                      <div style={{ padding: "0 13px 14px 13px", borderTop: `0.5px solid ${D.border}` }}>
+                        {bodyLoading[email.id]
+                          ? <div style={{ fontSize: 13, color: D.textFaint, paddingTop: 10 }}>Loading…</div>
+                          : <div style={{ fontSize: 13, color: D.textMuted, lineHeight: 1.65, whiteSpace: "pre-wrap", paddingTop: 10, maxHeight: 320, overflowY: "auto" }}>
+                              {emailBodies[email.id] || ""}
+                            </div>
+                        }
+                      </div>
+                    )}
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5, flexShrink: 0 }}>
-                    <button onClick={() => createTaskFromEmail(email, tokenRecord)}
-                      style={{ fontSize: 13, padding: "3px 8px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.textMuted, cursor: "pointer" }}>
-                      + Task
-                    </button>
-                    <button onClick={() => dismissEmail(email.id)}
-                      style={{ fontSize: 13, padding: "3px 8px", borderRadius: 8, border: `0.5px solid ${D.border}`, background: "transparent", color: D.textFaint, cursor: "pointer" }}>
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           );
         })}
