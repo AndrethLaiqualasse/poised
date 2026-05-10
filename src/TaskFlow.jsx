@@ -1668,7 +1668,7 @@ export default function TaskFlow() {
             transition: "transform .25s ease",
             display: "flex", flexDirection: "column",
           }}>
-            <div style={{ padding: "16px 14px 10px", borderBottom: `0.5px solid ${D.border}`, flexShrink: 0 }}>
+            <div style={{ padding: "16px 14px 10px", paddingTop: "calc(16px + env(safe-area-inset-top))", borderBottom: `0.5px solid ${D.border}`, flexShrink: 0 }}>
               <div style={{ fontFamily: "'Cinzel', serif", letterSpacing: "0.12em", lineHeight: 1, color: D.text }}>
                 <span style={{ fontSize: 22 }}>P</span><span style={{ fontSize: 13, letterSpacing: "0.18em" }}>OISED</span>
               </div>
