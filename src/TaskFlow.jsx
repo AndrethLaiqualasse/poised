@@ -1320,6 +1320,14 @@ export default function TaskFlow() {
           const loading = !!gmailLoading[tokenRecord.id];
           const loaded = tokenRecord.id in gmailEmails;
           const senderLabel = raw => raw.replace(/<[^>]+>/, "").trim() || raw;
+          const formatEmailDate = raw => {
+            if (!raw) return "";
+            const d = new Date(raw);
+            if (isNaN(d)) return raw;
+            const isToday = d.toLocaleDateString("en-CA") === TODAY;
+            if (isToday) return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+            return d.toLocaleDateString([], { month: "short", day: "numeric" });
+          };
 
           return (
             <div key={tokenRecord.id}>
@@ -1360,8 +1368,11 @@ export default function TaskFlow() {
                     <div onClick={() => expandEmail(email, tokenRecord)}
                       style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 13px", cursor: "pointer" }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: email.unread ? 600 : 500, color: D.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {senderLabel(email.from)}
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                          <div style={{ fontSize: 14, fontWeight: email.unread ? 600 : 500, color: D.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                            {senderLabel(email.from)}
+                          </div>
+                          <div style={{ fontSize: 12, color: D.textFaint, flexShrink: 0 }}>{formatEmailDate(email.date)}</div>
                         </div>
                         <div style={{ fontSize: 14, color: email.unread ? D.text : D.textFaint, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {email.subject}
