@@ -12,7 +12,7 @@ if (typeof document !== "undefined" && !document.getElementById("tabler-icons-cs
 }
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const GMAIL_SCOPES = "https://www.googleapis.com/auth/gmail.readonly";
+const GMAIL_SCOPES = "https://www.googleapis.com/auth/gmail.modify";
 
 const TODAY = new Date().toLocaleDateString("en-CA");
 const TOMORROW = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString("en-CA"); })();
@@ -914,8 +914,20 @@ export default function TaskFlow() {
     });
   }
 
-  function dismissEmail(emailId) {
+  async function dismissEmail(emailId, tokenRecord) {
+    // Remove from view immediately (optimistic)
     setDismissedEmailIds(s => new Set([...s, emailId]));
+    // Unstar in Gmail so it won't reappear
+    try {
+      const token = await getValidToken(tokenRecord);
+      await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${emailId}/modify`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ removeLabelIds: ["STARRED"] }),
+      });
+    } catch (err) {
+      console.error("Failed to unstar email:", err);
+    }
   }
 
   async function disconnectGmail(tokenId) {
@@ -1388,7 +1400,7 @@ export default function TaskFlow() {
                           style={{ fontSize: 13, padding: "3px 8px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.textMuted, cursor: "pointer" }}>
                           + Task
                         </button>
-                        <button onClick={e => { e.stopPropagation(); dismissEmail(email.id); }}
+                        <button onClick={e => { e.stopPropagation(); dismissEmail(email.id, tokenRecord); }}
                           style={{ fontSize: 13, padding: "3px 8px", borderRadius: 8, border: `0.5px solid ${D.border}`, background: "transparent", color: D.textFaint, cursor: "pointer" }}>
                           ✕
                         </button>
