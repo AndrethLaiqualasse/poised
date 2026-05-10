@@ -1649,10 +1649,12 @@ export default function TaskFlow() {
   if (!authReady) return null;
   if (!user) return <LoginScreen />;
 
+  const isMobile = window.innerWidth <= 500;
+
   return (
     <ThemeContext.Provider value={D}>
-      <div style={{ padding: "0.5rem 0" }}>
-        <div style={{ display: "flex", flexDirection: "column", height: 844, width: 390, margin: "0 auto", background: D.bg, position: "relative", overflow: "hidden", borderRadius: 16, border: `0.5px solid ${D.border}` }}>
+      <div style={isMobile ? {} : { padding: "0.5rem 0" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: isMobile ? "100dvh" : 844, width: isMobile ? "100%" : 390, margin: "0 auto", background: D.bg, position: "relative", overflow: "hidden", ...(isMobile ? {} : { borderRadius: 16, border: `0.5px solid ${D.border}` }) }}>
 
           {menuOpen && (
             <div onClick={() => setMenuOpen(false)}
@@ -1874,7 +1876,7 @@ export default function TaskFlow() {
           )}
 
           {/* BOTTOM NAV */}
-          <div style={{ display: "flex", borderTop: `0.5px solid ${D.border}`, height: 60, flexShrink: 0 }}>
+          <div style={{ display: "flex", borderTop: `0.5px solid ${D.border}`, height: 60, flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
             {[["inbox", "Inbox", Tray], ["today", "Today", CalendarDot], ["tomorrow", "Tomorrow", CalendarPlus], ["all", "All", SquaresFour], ["gmail", "Mail", Envelope]].map(([id, label, Icon]) => {
               const active = view === id;
               return (
