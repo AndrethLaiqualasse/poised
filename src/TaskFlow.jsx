@@ -1772,7 +1772,7 @@ export default function TaskFlow() {
 
           {/* TOPBAR */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px", paddingTop: "env(safe-area-inset-top)", height: "calc(48px + env(safe-area-inset-top))", borderBottom: `0.5px solid ${D.border}`, flexShrink: 0 }}>
-            <button onClick={() => setMenuOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: D.text, display: "flex", alignItems: "center" }}>☰</button>
+            <button onClick={() => setMenuOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: D.text, display: "flex", alignItems: "center", fontSize: 22 }}>☰</button>
             <h2 style={{ flex: 1, fontSize: 17, fontWeight: 600, color: D.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{viewTitles[view] || view}</h2>
             {view === "completed" && (
               <button onClick={async () => { const ids = tasks.filter(t => t.done).map(t => t.id); if (ids.length) await supabase.from("tasks").delete().in("id", ids); setTasks(ts => ts.filter(t => !t.done)); }}
@@ -1900,11 +1900,11 @@ export default function TaskFlow() {
               const active = view === id;
               return (
                 <button key={id} onClick={() => navTo(id)}
-                  style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, fontSize: 10, fontWeight: active ? 500 : 400, color: active ? D.accent : D.textMuted, cursor: "pointer", border: "none", background: "transparent", padding: "4px 2px", transition: "all .15s", position: "relative" }}>
+                  style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, fontSize: 12, fontWeight: active ? 500 : 400, color: active ? D.accent : D.textMuted, cursor: "pointer", border: "none", background: "transparent", padding: "4px 2px", transition: "all .15s", position: "relative" }}>
                   {id === "inbox" && inboxCount > 0 && (
-                    <span style={{ position: "absolute", top: 6, right: "calc(50% - 18px)", background: D.danger, color: "white", fontSize: 9, fontWeight: 700, borderRadius: 20, padding: "1px 5px", lineHeight: 1.4 }}>{inboxCount}</span>
+                    <span style={{ position: "absolute", top: 6, right: "calc(50% - 20px)", background: D.danger, color: "white", fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "1px 5px", lineHeight: 1.4 }}>{inboxCount}</span>
                   )}
-                  <Icon size={22} weight="light" />
+                  <Icon size={26} weight="light" />
                   <span>{label}</span>
                 </button>
               );
