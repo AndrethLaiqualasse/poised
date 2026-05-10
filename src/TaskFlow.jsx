@@ -674,6 +674,27 @@ export default function TaskFlow() {
   const [calDayLabel, setCalDayLabel] = useState("");
   const [calFilters, setCalFilters] = useState({ ...EMPTY_FILTERS });
   const dragSrc = useRef(null);
+  const swipeTouchStartX = useRef(null);
+  const swipeTouchStartY = useRef(null);
+
+  const handleSwipeStart = (e) => {
+    swipeTouchStartX.current = e.touches[0].clientX;
+    swipeTouchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleSwipeEnd = (e) => {
+    if (swipeTouchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - swipeTouchStartX.current;
+    const dy = e.changedTouches[0].clientY - swipeTouchStartY.current;
+    swipeTouchStartX.current = null;
+    swipeTouchStartY.current = null;
+    // Ignore mostly-vertical swipes
+    if (Math.abs(dy) > Math.abs(dx)) return;
+    // Swipe right from left edge → open
+    if (dx > 60 && !menuOpen) setMenuOpen(true);
+    // Swipe left → close
+    if (dx < -60 && menuOpen) setMenuOpen(false);
+  };
 
   const [clients, setClients] = useState([]); // [{id, name, ctx}]
   const [projects, setProjects] = useState([]); // [{id, name, ctx, client_id, archived}]
@@ -1652,7 +1673,7 @@ export default function TaskFlow() {
   return (
     <ThemeContext.Provider value={D}>
       <div>
-        <div style={{ display: "flex", flexDirection: "column", height: "100dvh", width: "100%", background: D.bg, position: "relative", overflow: "hidden" }}>
+        <div onTouchStart={handleSwipeStart} onTouchEnd={handleSwipeEnd} style={{ display: "flex", flexDirection: "column", height: "100dvh", width: "100%", background: D.bg, position: "relative", overflow: "hidden" }}>
 
           {menuOpen && (
             <div onClick={() => setMenuOpen(false)}
