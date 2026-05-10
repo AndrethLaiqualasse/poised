@@ -685,12 +685,14 @@ export default function TaskFlow() {
   }, [user]);
 
   // Handle Gmail OAuth callback (detects ?code= in URL after Google redirect)
+  const gmailCallbackHandled = useRef(false);
   useEffect(() => {
     if (!authReady || !user) return;
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     const state = params.get("state");
-    if (code && state) {
+    if (code && state && !gmailCallbackHandled.current) {
+      gmailCallbackHandled.current = true;
       handleGmailCallback(code, state);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -729,7 +731,12 @@ export default function TaskFlow() {
       body: JSON.stringify({ action: "exchange", code, redirect_uri: redirectUri }),
     });
     const data = await resp.json();
-    if (data.error) { alert("Gmail auth error: " + (data.error_description || data.error)); window.history.replaceState({}, "", window.location.pathname); return; }
+    if (data.error) {
+      console.error("Gmail token exchange error:", data);
+      alert("Gmail auth error: " + data.error + (data.error_description ? " — " + data.error_description : "") + "\n\nRedirect URI used: " + redirectUri);
+      window.history.replaceState({}, "", window.location.pathname);
+      return;
+    }
 
     // Fetch the account's email address
     const profileResp = await fetch("https://www.googleapis.com/gmail/v1/users/me/profile", {
