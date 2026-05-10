@@ -1865,7 +1865,7 @@ export default function TaskFlow() {
           {/* FAB */}
           {showFab && (
             <button onClick={openNewTask} aria-label="New task"
-              style={{ position: "absolute", bottom: 80, right: 24, width: 52, height: 52, borderRadius: "50%", background: D.accent, border: "none", color: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: `0 2px 12px ${D.accentShadow}`, zIndex: 10 }}>
+              style={{ position: "absolute", bottom: "calc(80px + env(safe-area-inset-bottom))", right: 24, width: 52, height: 52, borderRadius: "50%", background: D.accent, border: "none", color: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: `0 2px 12px ${D.accentShadow}`, zIndex: 10 }}>
               <svg width="20" height="20" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <line x1="13" y1="3" x2="13" y2="23" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
                 <line x1="3" y1="13" x2="23" y2="13" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
@@ -1874,7 +1874,7 @@ export default function TaskFlow() {
           )}
 
           {/* BOTTOM NAV */}
-          <div style={{ display: "flex", borderTop: `0.5px solid ${D.border}`, height: 60, flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
+          <div style={{ display: "flex", borderTop: `0.5px solid ${D.border}`, height: "calc(60px + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)", flexShrink: 0 }}>
             {[["inbox", "Inbox", Tray], ["today", "Today", CalendarDot], ["tomorrow", "Tomorrow", CalendarPlus], ["all", "All", SquaresFour], ["gmail", "Mail", Envelope]].map(([id, label, Icon]) => {
               const active = view === id;
               return (
