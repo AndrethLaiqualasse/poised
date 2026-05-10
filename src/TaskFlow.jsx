@@ -385,10 +385,7 @@ function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, pro
     if (proj) { set("project_id", proj.id); setNewProjName(""); setShowNewProj(false); }
   };
 
-  const handleClose = () => {
-    if (form.subject.trim()) handleSave();
-    else onClose();
-  };
+  const handleClose = () => { onClose(); };
 
   if (!open) return null;
 
@@ -404,9 +401,10 @@ function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, pro
     <div onClick={handleClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 50, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: D.bgSurface, borderRadius: "16px 16px 0 0", maxHeight: "92%", display: "flex", flexDirection: "column", border: `0.5px solid ${D.borderMed}` }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: D.bgHover, margin: "9px auto 0" }} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 13px 0" }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: D.text }}>{isEdit ? "Edit task" : "New task"}</div>
-          <button onClick={handleClose} style={{ background: "none", border: "none", cursor: "pointer", color: D.textMuted, display: "flex", alignItems: "center" }}>✕</button>
+        <div style={{ display: "flex", alignItems: "center", padding: "11px 13px 0", gap: 8 }}>
+          <button onClick={handleClose} style={{ background: "none", border: "none", cursor: "pointer", color: D.textMuted, display: "flex", alignItems: "center", padding: "0 2px", flexShrink: 0 }}>✕</button>
+          <div style={{ flex: 1, fontSize: 16, fontWeight: 600, color: D.text, textAlign: "center" }}>{isEdit ? "Edit task" : "New task"}</div>
+          <button onClick={handleSave} disabled={!form.subject.trim()} style={{ background: "none", border: "none", cursor: form.subject.trim() ? "pointer" : "default", color: form.subject.trim() ? D.accent : D.textFaint, fontSize: 15, fontWeight: 600, padding: "0 2px", flexShrink: 0, transition: "color .15s" }}>Save</button>
         </div>
 
         {!forceCtx && !isEdit && (
@@ -505,14 +503,13 @@ function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, pro
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "space-between", padding: "11px 13px", borderTop: `0.5px solid ${D.border}`, flexShrink: 0 }}>
-          {isEdit ? (
+        {isEdit && (
+          <div style={{ display: "flex", padding: "11px 13px", borderTop: `0.5px solid ${D.border}`, flexShrink: 0 }}>
             <button onClick={onDelete} style={{ fontSize: 14, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${D.dangerBorder}`, background: "transparent", color: D.danger, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                Delete
             </button>
-          ) : <div />}
-          <div style={{ fontSize: 13, color: D.textFaint, display: "flex", alignItems: "center" }}>tap outside to save</div>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
