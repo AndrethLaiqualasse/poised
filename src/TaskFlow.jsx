@@ -11,6 +11,9 @@ if (typeof document !== "undefined" && !document.getElementById("tabler-icons-cs
   document.head.appendChild(link);
 }
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const GMAIL_SCOPES = "https://www.googleapis.com/auth/gmail.readonly";
+
 const TODAY = new Date().toLocaleDateString("en-CA");
 const TOMORROW = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString("en-CA"); })();
 const PRIORITY_LABELS = { p1: "High", p2: "Medium", p3: "Low", p4: "None" };
@@ -653,11 +656,10 @@ export default function TaskFlow() {
   const [taskTypes, setTaskTypes] = useState(["Phone Call", "Research", "Shopping", "Admin", "Other"]);
   const [filterTags, setFilterTags] = useState(["5 min task", "Online Shopping", "Waiting on", "Quick win"]);
   const [statuses, setStatuses] = useState(["Not Started", "Working", "Waiting", "Complete", "Deferred"]);
-  const [gmailAccounts, setGmailAccounts] = useState([
-    { email: "you@gmail.com", ctx: "personal" },
-    { email: "work@gmail.com", ctx: "business" },
-  ]);
-  const [newGmailForm, setNewGmailForm] = useState({ email: "", ctx: "personal" });
+  const [gmailTokens, setGmailTokens] = useState([]);
+  const [gmailEmails, setGmailEmails] = useState({});     // { tokenId: [emailObj] }
+  const [dismissedEmailIds, setDismissedEmailIds] = useState(new Set());
+  const [gmailLoading, setGmailLoading] = useState({});
   const [newInputs, setNewInputs] = useState({});
   const [newProjForm, setNewProjForm] = useState({ name: "", ctx: "business", client_id: "" });
   const [newClientForm, setNewClientForm] = useState({ name: "", ctx: "business" });
@@ -666,32 +668,209 @@ export default function TaskFlow() {
 
   // Load data from Supabase whenever user changes
   useEffect(() => {
-    if (!user) { setTasks([]); setProjects([]); setClients([]); return; }
+    if (!user) { setTasks([]); setProjects([]); setClients([]); setGmailTokens([]); return; }
     const load = async () => {
-      const [{ data: t }, { data: p }, { data: c }] = await Promise.all([
+      const [{ data: t }, { data: p }, { data: c }, { data: g }] = await Promise.all([
         supabase.from("tasks").select("*").order("created_at", { ascending: true }),
         supabase.from("projects").select("*").order("name", { ascending: true }),
         supabase.from("clients").select("*").order("name", { ascending: true }),
+        supabase.from("gmail_tokens").select("*"),
       ]);
       if (t) setTasks(t);
       if (p) setProjects(p);
       if (c) setClients(c);
+      if (g) setGmailTokens(g);
     };
     load();
   }, [user]);
+
+  // Handle Gmail OAuth callback (detects ?code= in URL after Google redirect)
+  useEffect(() => {
+    if (!authReady || !user) return;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    if (code && state) {
+      handleGmailCallback(code, state);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authReady, user]);
 
   // Helpers
   const clientName = (id) => clients.find(c => c.id === id)?.name || "";
   const projectById = (id) => projects.find(p => p.id === id);
 
-  const gmailThreads = [
-    { id: "g1", account: "work@gmail.com", sender: "Sarah @ Kora", subject: "RE: MailChimp distro follow up", time: "9:41 AM", unread: true },
-    { id: "g2", account: "work@gmail.com", sender: "Mike Donovan", subject: "DocSend access issues — ASAP", time: "Yesterday", unread: true },
-    { id: "g3", account: "work@gmail.com", sender: "Badgley Phelps", subject: "Last contact tracking thoughts", time: "Tuesday", unread: false },
-    { id: "g4", account: "work@gmail.com", sender: "noreply@oncehub.com", subject: "OnceHub integration ready", time: "Monday", unread: false },
-    { id: "g5", account: "you@gmail.com", sender: "Mom", subject: "Dinner this Sunday?", time: "10:02 AM", unread: true },
-    { id: "g6", account: "you@gmail.com", sender: "Netflix", subject: "New arrivals this week", time: "Yesterday", unread: false },
-  ];
+  // ── Gmail OAuth & API helpers ─────────────────────────────────────────────
+
+  function connectGmail(ctx) {
+    const redirectUri = window.location.origin;
+    const state = JSON.stringify({ ctx, redirectUri });
+    const params = new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: GMAIL_SCOPES,
+      access_type: "offline",
+      prompt: "consent",
+      state,
+    });
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+  }
+
+  async function handleGmailCallback(code, state) {
+    let ctx = "personal";
+    let redirectUri = window.location.origin;
+    try { const s = JSON.parse(state); ctx = s.ctx; redirectUri = s.redirectUri; } catch (_) { /* ignore */ }
+
+    // Exchange code for tokens via serverless function
+    const resp = await fetch("/api/gmail-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "exchange", code, redirect_uri: redirectUri }),
+    });
+    const data = await resp.json();
+    if (data.error) { alert("Gmail auth error: " + (data.error_description || data.error)); window.history.replaceState({}, "", window.location.pathname); return; }
+
+    // Fetch the account's email address
+    const profileResp = await fetch("https://www.googleapis.com/gmail/v1/users/me/profile", {
+      headers: { Authorization: `Bearer ${data.access_token}` },
+    });
+    const profile = await profileResp.json();
+
+    const tokenPayload = {
+      user_id: user.id,
+      email: profile.emailAddress,
+      ctx,
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+    };
+
+    // Upsert — if this Gmail address is already connected, update it
+    const existing = gmailTokens.find(t => t.email === profile.emailAddress);
+    if (existing) {
+      const { data: updated } = await supabase.from("gmail_tokens").update(tokenPayload).eq("id", existing.id).select().single();
+      if (updated) setGmailTokens(ts => ts.map(t => t.id === updated.id ? updated : t));
+    } else {
+      const { data: inserted } = await supabase.from("gmail_tokens").insert(tokenPayload).select().single();
+      if (inserted) setGmailTokens(ts => [...ts, inserted]);
+    }
+
+    // Clean the ?code= params from the URL
+    window.history.replaceState({}, "", window.location.pathname);
+  }
+
+  async function getValidToken(tokenRecord) {
+    // Return existing token if not expiring in next 60 seconds
+    if (tokenRecord.expires_at - 60 > Date.now() / 1000) return tokenRecord.access_token;
+
+    const resp = await fetch("/api/gmail-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "refresh", refresh_token: tokenRecord.refresh_token }),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error_description || data.error);
+
+    const newExpires = Math.floor(Date.now() / 1000) + (data.expires_in || 3600);
+    await supabase.from("gmail_tokens").update({ access_token: data.access_token, expires_at: newExpires }).eq("id", tokenRecord.id);
+    setGmailTokens(ts => ts.map(t => t.id === tokenRecord.id ? { ...t, access_token: data.access_token, expires_at: newExpires } : t));
+    return data.access_token;
+  }
+
+  function extractBody(msg) {
+    const findPart = (parts, mimeType) => {
+      if (!parts) return null;
+      for (const part of parts) {
+        if (part.mimeType === mimeType && part.body?.data) return part.body.data;
+        if (part.parts) { const r = findPart(part.parts, mimeType); if (r) return r; }
+      }
+      return null;
+    };
+    let b64 = null;
+    if (msg.payload?.mimeType === "text/plain" && msg.payload.body?.data) {
+      b64 = msg.payload.body.data;
+    } else {
+      b64 = findPart(msg.payload?.parts, "text/plain");
+    }
+    if (!b64) return "";
+    try { return atob(b64.replace(/-/g, "+").replace(/_/g, "/")).trim(); } catch (_) { return ""; }
+  }
+
+  async function fetchEmailBody(tokenRecord, messageId) {
+    const token = await getValidToken(tokenRecord);
+    const resp = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=full`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return resp.json();
+  }
+
+  async function fetchEmailsForAccount(tokenRecord) {
+    setGmailLoading(l => ({ ...l, [tokenRecord.id]: true }));
+    try {
+      const token = await getValidToken(tokenRecord);
+      const listResp = await fetch("https://www.googleapis.com/gmail/v1/users/me/messages?q=is:unread in:inbox&maxResults=20", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const listData = await listResp.json();
+      if (!listData.messages) { setGmailEmails(e => ({ ...e, [tokenRecord.id]: [] })); return; }
+
+      const msgs = await Promise.all(
+        listData.messages.slice(0, 15).map(m =>
+          fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).then(r => r.json())
+        )
+      );
+
+      const emails = msgs.map(msg => {
+        const headers = msg.payload?.headers || [];
+        const h = name => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || "";
+        return {
+          id: msg.id,
+          threadId: msg.threadId,
+          from: h("From"),
+          subject: h("Subject") || "(no subject)",
+          date: h("Date"),
+          snippet: msg.snippet || "",
+          unread: (msg.labelIds || []).includes("UNREAD"),
+        };
+      });
+
+      setGmailEmails(e => ({ ...e, [tokenRecord.id]: emails }));
+    } catch (err) {
+      console.error("fetchEmailsForAccount error:", err);
+      alert("Error loading Gmail: " + err.message);
+    }
+    setGmailLoading(l => ({ ...l, [tokenRecord.id]: false }));
+  }
+
+  async function createTaskFromEmail(email, tokenRecord) {
+    const fullMsg = await fetchEmailBody(tokenRecord, email.id);
+    const body = extractBody(fullMsg);
+    const senderName = email.from.replace(/<[^>]+>/, "").trim();
+    setDrawer({
+      open: true,
+      task: null,
+      forceCtx: tokenRecord.ctx,
+      prefill: {
+        subject: email.subject,
+        description: `From: ${senderName}\n\n${body}`.trim(),
+      },
+    });
+  }
+
+  function dismissEmail(emailId) {
+    setDismissedEmailIds(s => new Set([...s, emailId]));
+  }
+
+  async function disconnectGmail(tokenId) {
+    await supabase.from("gmail_tokens").delete().eq("id", tokenId);
+    setGmailTokens(ts => ts.filter(t => t.id !== tokenId));
+    setGmailEmails(e => { const n = { ...e }; delete n[tokenId]; return n; });
+  }
+
+  // ── End Gmail helpers ─────────────────────────────────────────────────────
 
   const inboxCount = tasks.filter(t => !t.done && t.inbox).length;
 
@@ -1070,8 +1249,8 @@ export default function TaskFlow() {
   }
 
   function renderGmail() {
-    const ctxAccounts = gmailAccounts.filter(a => a.ctx === globalCtx);
-    if (!ctxAccounts.length) {
+    const ctxTokens = gmailTokens.filter(t => t.ctx === globalCtx);
+    if (!ctxTokens.length) {
       return (
         <div style={{ textAlign: "center", padding: 44, color: D.textMuted, fontSize: 15 }}>
           No {globalCtx} Gmail accounts linked.<br />
@@ -1081,26 +1260,67 @@ export default function TaskFlow() {
     }
     return (
       <div>
-        {ctxAccounts.map(acc => {
-          const threads = gmailThreads.filter(t => t.account === acc.email);
+        {ctxTokens.map(tokenRecord => {
+          const allEmails = gmailEmails[tokenRecord.id] || [];
+          const emails = allEmails.filter(e => !dismissedEmailIds.has(e.id));
+          const loading = !!gmailLoading[tokenRecord.id];
+          const loaded = tokenRecord.id in gmailEmails;
+          const senderLabel = raw => raw.replace(/<[^>]+>/, "").trim() || raw;
+
           return (
-            <div key={acc.email}>
+            <div key={tokenRecord.id}>
+              {/* Account header */}
               <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 13px", background: globalCtx === "business" ? D.gmailBizBg : D.gmailPersonalBg, borderBottom: `0.5px solid ${D.borderMed}`, fontSize: 14, color: D.text, fontWeight: 500 }}>
-                {acc.email}
-                <Chip style={{ background: D.accentBg, color: D.accent, marginLeft: "auto" }}>{acc.ctx}</Chip>
+                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tokenRecord.email}</span>
+                <Chip style={{ background: D.accentBg, color: D.accent, flexShrink: 0 }}>{tokenRecord.ctx}</Chip>
+                <button onClick={() => fetchEmailsForAccount(tokenRecord)}
+                  style={{ fontSize: 12, padding: "2px 8px", borderRadius: 7, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.textMuted, cursor: "pointer", flexShrink: 0 }}>
+                  {loading ? "…" : "↺"}
+                </button>
               </div>
-              {threads.length === 0 && (
-                <div style={{ padding: "12px 13px", fontSize: 14, color: D.textFaint }}>No threads</div>
+
+              {/* Not yet loaded */}
+              {!loaded && !loading && (
+                <div style={{ padding: "16px 13px", textAlign: "center" }}>
+                  <button onClick={() => fetchEmailsForAccount(tokenRecord)}
+                    style={{ fontSize: 14, padding: "6px 14px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.textMuted, cursor: "pointer" }}>
+                    Load emails
+                  </button>
+                </div>
               )}
-              {threads.map(t => (
-                <div key={t.id} style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 13px", borderBottom: `0.5px solid ${D.border}` }}>
+
+              {/* Loading */}
+              {loading && <div style={{ padding: "12px 13px", fontSize: 14, color: D.textFaint }}>Loading…</div>}
+
+              {/* Empty */}
+              {loaded && !loading && emails.length === 0 && (
+                <div style={{ padding: "12px 13px", fontSize: 14, color: D.textFaint }}>No unread emails</div>
+              )}
+
+              {/* Email rows */}
+              {emails.map(email => (
+                <div key={email.id} style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 13px", borderBottom: `0.5px solid ${D.border}` }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: t.unread ? 600 : 500, color: D.text }}>{t.sender}</div>
-                    <div style={{ fontSize: 14, color: t.unread ? D.text : D.textFaint, marginTop: 2 }}>{t.subject}</div>
-                    <div style={{ fontSize: 12, color: D.textFaint, marginTop: 2 }}>{t.time}</div>
+                    <div style={{ fontSize: 14, fontWeight: email.unread ? 600 : 500, color: D.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {senderLabel(email.from)}
+                    </div>
+                    <div style={{ fontSize: 14, color: email.unread ? D.text : D.textFaint, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {email.subject}
+                    </div>
+                    <div style={{ fontSize: 12, color: D.textFaint, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {email.snippet}
+                    </div>
                   </div>
-                  <button onClick={() => setDrawer({ open: true, task: null, forceCtx: globalCtx, prefill: { description: "From: " + t.sender } })}
-                    style={{ fontSize: 13, padding: "3px 8px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.textMuted, cursor: "pointer" }}>+ Task</button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5, flexShrink: 0 }}>
+                    <button onClick={() => createTaskFromEmail(email, tokenRecord)}
+                      style={{ fontSize: 13, padding: "3px 8px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.textMuted, cursor: "pointer" }}>
+                      + Task
+                    </button>
+                    <button onClick={() => dismissEmail(email.id)}
+                      style={{ fontSize: 13, padding: "3px 8px", borderRadius: 8, border: `0.5px solid ${D.border}`, background: "transparent", color: D.textFaint, cursor: "pointer" }}>
+                      ✕
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1242,41 +1462,34 @@ export default function TaskFlow() {
         {/* Gmail accounts */}
         <div style={{ padding: 13 }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: D.text, marginBottom: 9 }}>Gmail accounts <span style={{ fontSize: 13, color: D.textMuted, fontWeight: 400 }}>(up to 3)</span></div>
-          {gmailAccounts.map(acc => (
-            <div key={acc.email} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `0.5px solid ${D.border}` }}>
+          {gmailTokens.map(token => (
+            <div key={token.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `0.5px solid ${D.border}` }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, color: D.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{acc.email}</div>
+                <div style={{ fontSize: 15, color: D.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{token.email}</div>
+                <div style={{ fontSize: 12, color: D.textMuted, marginTop: 2 }}>{token.ctx}</div>
               </div>
-              <select value={acc.ctx} onChange={e => setGmailAccounts(a => a.map(x => x.email === acc.email ? { ...x, ctx: e.target.value } : x))}
-                style={{ fontSize: 13, padding: "3px 6px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: D.bg, color: D.text }}>
-                <option value="personal">Personal</option>
-                <option value="business">Business</option>
-              </select>
-              <button onClick={() => setGmailAccounts(a => a.filter(x => x.email !== acc.email))}
-                style={{ fontSize: 13, padding: "3px 7px", borderRadius: 8, border: `0.5px solid ${D.dangerBorder}`, background: "transparent", cursor: "pointer", color: D.danger }}>✕</button>
+              <button onClick={() => disconnectGmail(token.id)}
+                style={{ fontSize: 13, padding: "3px 9px", borderRadius: 8, border: `0.5px solid ${D.dangerBorder}`, background: "transparent", cursor: "pointer", color: D.danger, flexShrink: 0 }}>
+                Disconnect
+              </button>
             </div>
           ))}
-          {gmailAccounts.length < 3 && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                <input value={newGmailForm.email} onChange={e => setNewGmailForm(f => ({ ...f, email: e.target.value }))} placeholder="email@gmail.com"
-                  style={inp} />
-                <select value={newGmailForm.ctx} onChange={e => setNewGmailForm(f => ({ ...f, ctx: e.target.value }))}
-                  style={{ fontSize: 14, padding: "5px 8px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: D.bg, color: D.text }}>
-                  <option value="personal">Personal</option>
-                  <option value="business">Business</option>
-                </select>
-              </div>
-              <button onClick={() => {
-                const v = newGmailForm.email.trim();
-                if (v && !gmailAccounts.find(a => a.email === v)) {
-                  setGmailAccounts(a => [...a, { email: v, ctx: newGmailForm.ctx }]);
-                  setNewGmailForm({ email: "", ctx: "personal" });
-                }
-              }} style={{ fontSize: 14, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.text, cursor: "pointer", width: "100%" }}>+ Add account</button>
+          {gmailTokens.length === 0 && (
+            <div style={{ fontSize: 14, color: D.textFaint, marginBottom: 10 }}>No accounts connected yet.</div>
+          )}
+          {gmailTokens.length < 3 && (
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <button onClick={() => connectGmail("business")}
+                style={{ flex: 1, fontSize: 14, padding: "7px 10px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.text, cursor: "pointer" }}>
+                + Business Gmail
+              </button>
+              <button onClick={() => connectGmail("personal")}
+                style={{ flex: 1, fontSize: 14, padding: "7px 10px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.text, cursor: "pointer" }}>
+                + Personal Gmail
+              </button>
             </div>
           )}
-          {gmailAccounts.length >= 3 && <p style={{ fontSize: 13, color: D.textMuted, marginTop: 7 }}>Maximum of 3 accounts reached.</p>}
+          {gmailTokens.length >= 3 && <p style={{ fontSize: 13, color: D.textMuted, marginTop: 7 }}>Maximum of 3 accounts reached.</p>}
         </div>
       </div>
     );
