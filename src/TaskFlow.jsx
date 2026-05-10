@@ -134,7 +134,7 @@ function FilterDropdown({ filters, setFilters, filterTags, statuses, extraGroups
     <div ref={ref} style={{ position: "relative" }}>
       <button onClick={() => setOpen(o => !o)} title="Filters"
         style={{ background: "none", border: "none", cursor: "pointer", color: activeCount > 0 ? D.accent : D.textMuted, padding: "4px 6px", display: "flex", alignItems: "center", gap: 3, position: "relative" }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
         </svg>
         {activeCount > 0 && <span style={{ position: "absolute", top: 2, right: 2, width: 7, height: 7, borderRadius: "50%", background: D.accent }} />}
@@ -189,7 +189,7 @@ function SortDropdown({ sort, setSort }) {
     <div ref={ref} style={{ position: "relative" }}>
       <button onClick={() => setOpen(o => !o)} title="Sort"
         style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center", gap: 3, color: isActive ? D.accent : D.textMuted, fontSize: 14, fontWeight: isActive ? 600 : 400 }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="15" y2="12" /><line x1="3" y1="18" x2="9" y2="18" />
         </svg>
         {isActive && <span style={{ fontSize: 12 }}>{activeLabel}</span>}
