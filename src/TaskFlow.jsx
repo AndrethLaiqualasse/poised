@@ -1649,12 +1649,10 @@ export default function TaskFlow() {
   if (!authReady) return null;
   if (!user) return <LoginScreen />;
 
-  const isMobile = window.innerWidth <= 500;
-
   return (
     <ThemeContext.Provider value={D}>
-      <div style={isMobile ? {} : { padding: "0.5rem 0" }}>
-        <div style={{ display: "flex", flexDirection: "column", height: isMobile ? "100dvh" : 844, width: isMobile ? "100%" : 390, margin: "0 auto", background: D.bg, position: "relative", overflow: "hidden", ...(isMobile ? {} : { borderRadius: 16, border: `0.5px solid ${D.border}` }) }}>
+      <div>
+        <div style={{ display: "flex", flexDirection: "column", height: "100dvh", width: "100%", background: D.bg, position: "relative", overflow: "hidden" }}>
 
           {menuOpen && (
             <div onClick={() => setMenuOpen(false)}
@@ -1752,7 +1750,7 @@ export default function TaskFlow() {
           </div>
 
           {/* TOPBAR */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px", paddingTop: isMobile ? "env(safe-area-inset-top)" : 0, height: isMobile ? `calc(48px + env(safe-area-inset-top))` : 48, borderBottom: `0.5px solid ${D.border}`, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px", paddingTop: "env(safe-area-inset-top)", height: "calc(48px + env(safe-area-inset-top))", borderBottom: `0.5px solid ${D.border}`, flexShrink: 0 }}>
             <button onClick={() => setMenuOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: D.text, display: "flex", alignItems: "center" }}>☰</button>
             <h2 style={{ flex: 1, fontSize: 17, fontWeight: 600, color: D.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{viewTitles[view] || view}</h2>
             {view === "completed" && (
