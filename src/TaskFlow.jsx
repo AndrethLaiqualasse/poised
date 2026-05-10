@@ -1752,7 +1752,7 @@ export default function TaskFlow() {
           </div>
 
           {/* TOPBAR */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px", height: 48, borderBottom: `0.5px solid ${D.border}`, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px", paddingTop: isMobile ? "env(safe-area-inset-top)" : 0, height: isMobile ? `calc(48px + env(safe-area-inset-top))` : 48, borderBottom: `0.5px solid ${D.border}`, flexShrink: 0 }}>
             <button onClick={() => setMenuOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: D.text, display: "flex", alignItems: "center" }}>☰</button>
             <h2 style={{ flex: 1, fontSize: 17, fontWeight: 600, color: D.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{viewTitles[view] || view}</h2>
             {view === "completed" && (
