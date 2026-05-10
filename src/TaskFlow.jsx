@@ -511,7 +511,6 @@ function LoginScreen() {
         <div style={{ fontFamily: "'Cinzel', serif", letterSpacing: "0.12em", lineHeight: 1, color: D.text, marginBottom: 6, textAlign: "center" }}>
           <span style={{ fontSize: 28 }}>P</span><span style={{ fontSize: 16, letterSpacing: "0.18em" }}>OISED</span>
         </div>
-        <p style={{ fontSize: 13, color: D.textFaint, textAlign: "center", marginBottom: 28 }}>your personal task layer</p>
         {sent ? (
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 32, marginBottom: 12 }}>✉️</div>
