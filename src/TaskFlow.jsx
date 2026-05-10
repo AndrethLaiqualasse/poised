@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, createContext, useContext } from "react";
-import { Tray, CalendarDot, CalendarPlus, CalendarDots, CalendarBlank, SquaresFour, Calendar, CheckCircle, FolderSimple, Hash, Gear, Envelope, UserCircle, Briefcase } from "@phosphor-icons/react";
+import { Tray, CalendarDot, CalendarPlus, CalendarDots, CalendarBlank, SquaresFour, Calendar, CheckCircle, FolderSimple, Hash, Gear, Envelope, UserCircle, Briefcase, ArrowCounterClockwise } from "@phosphor-icons/react";
 import { supabase } from "./supabase.js";
 
 // Load Tabler icons from CDN
@@ -106,7 +106,7 @@ const THEMES = {
 };
 
 const EMPTY_FILTERS = { pri: "all", status: "all", date: "all", tag: [], proj: "all", client: "all" };
-const EMPTY_SORT = "manual";
+const EMPTY_SORT = "due";
 
 const Chip = ({ children, style }) => (
   <span style={{ fontSize: 12, padding: "1px 7px", borderRadius: 20, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 3, ...style }}>{children}</span>
@@ -182,9 +182,9 @@ function SortDropdown({ sort, setSort }) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
-  const opts = [["manual", "Manual"], ["pri", "Priority"], ["due", "Due date"], ["status", "Status"]];
-  const activeLabel = opts.find(([v]) => v === sort)?.[1] || "Manual";
-  const isActive = sort !== "manual";
+  const opts = [["pri", "Priority"], ["due", "Due date"], ["status", "Status"]];
+  const activeLabel = opts.find(([v]) => v === sort)?.[1] || "Due date";
+  const isActive = sort !== "due";
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button onClick={() => setOpen(o => !o)} title="Sort"
@@ -240,9 +240,7 @@ function TaskRow({ task, clientLabel, onDone, onEdit, onDelete, onSelect, isSele
   const handleTouchEnd = () => {
     setAnimating(true);
     if (swipeX <= -THRESHOLD) {
-      setSwipeX(-110);
-      setDeleting(true);
-      setTimeout(() => onDelete(task.id), 320);
+      setSwipeX(-90); // stop at revealed state — user must tap delete to confirm
     } else {
       setSwipeX(0);
     }
@@ -258,7 +256,8 @@ function TaskRow({ task, clientLabel, onDone, onEdit, onDelete, onSelect, isSele
   const revealPct = Math.min(Math.abs(swipeX) / THRESHOLD, 1);
 
   // Selection circle (left) — replaces the old complete button for non-done tasks
-  const selCircle = task.done ? (
+  const isDoneOrComplete = task.done || task.status === "Complete";
+  const selCircle = isDoneOrComplete ? (
     // Done tasks: green filled circle, non-interactive for selection
     <div style={{ width: 22, height: 22, borderRadius: "50%", background: D.success, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -272,8 +271,9 @@ function TaskRow({ task, clientLabel, onDone, onEdit, onDelete, onSelect, isSele
 
   return (
     <div style={{ position: "relative", overflow: "hidden", borderBottom: `0.5px solid ${D.border}` }}>
-      {/* Delete background */}
-      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 110, background: D.danger, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: revealPct }}>
+      {/* Delete background — tap to confirm */}
+      <div onClick={() => { setAnimating(true); setDeleting(true); setTimeout(() => onDelete(task.id), 300); }}
+        style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 90, background: D.danger, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: revealPct, cursor: "pointer" }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
         </svg>
@@ -285,7 +285,7 @@ function TaskRow({ task, clientLabel, onDone, onEdit, onDelete, onSelect, isSele
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 13px", background: isSelected ? D.accentBg : D.bg, cursor: "pointer", opacity: deleting ? 0 : task.done ? 0.55 : 1, transform: `translateX(${swipeX}px)`, transition: animating ? "transform 0.25s ease, opacity 0.25s ease" : "none" }}
+        style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 13px", background: isSelected ? D.accentBg : D.bg, cursor: "pointer", opacity: deleting ? 0 : isDoneOrComplete ? 0.55 : 1, transform: `translateX(${swipeX}px)`, transition: animating ? "transform 0.25s ease, opacity 0.25s ease" : "none" }}
         draggable={draggable}
         onDragStart={draggable ? onDragStart : undefined}
         onDragOver={draggable ? e => e.preventDefault() : undefined}
@@ -293,7 +293,10 @@ function TaskRow({ task, clientLabel, onDone, onEdit, onDelete, onSelect, isSele
       >
         {selCircle}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 500, color: task.done ? D.textFaint : D.text, textDecoration: task.done ? "line-through" : "none", marginBottom: 3, lineHeight: 1.35 }}>{task.subject}</div>
+          <div style={{ fontSize: 15, fontWeight: 500, color: task.done ? D.textFaint : D.text, textDecoration: task.done ? "line-through" : "none", marginBottom: 3, lineHeight: 1.35 }}>
+            {task.subject}
+            {task.recurring && task.recurring !== "none" && <span style={{ marginLeft: 6, fontSize: 12, color: D.textMuted, opacity: 0.8 }}>↻</span>}
+          </div>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
             <Chip style={{ background: "transparent", ...(D.status[task.status] || D.status["Not Started"]) }}>{task.status}</Chip>
             <Chip style={{ background: "transparent", ...(D.priority[task.priority] || D.priority.p4) }}>{PRIORITY_LABELS[task.priority]}</Chip>
@@ -302,14 +305,16 @@ function TaskRow({ task, clientLabel, onDone, onEdit, onDelete, onSelect, isSele
           </div>
         </div>
         {/* Quick complete (right side) — only for non-done tasks */}
-        {!task.done ? (
+        {!task.done && task.status !== "Complete" ? (
           <button onClick={e => { e.stopPropagation(); onDone(task.id); }}
             style={{ width: 30, height: 30, borderRadius: "50%", border: `1.5px solid ${D.borderMed}`, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", marginTop: -2 }}>
             <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke={D.textFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
         ) : (
           <button onClick={e => { e.stopPropagation(); onDone(task.id, true); }}
-            style={{ fontSize: 13, padding: "3px 8px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.textMuted, cursor: "pointer", whiteSpace: "nowrap" }}>↩ Undo</button>
+            style={{ fontSize: 13, padding: "3px 8px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.textMuted, cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
+            <ArrowCounterClockwise size={14} weight="light" />Undo
+          </button>
         )}
       </div>
     </div>
@@ -322,7 +327,7 @@ function SectionHeader({ children }) {
 }
 
 // ── TASK DRAWER ──────────────────────────────────────────────────────────
-function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, projects, filterTags, statuses, forceCtx }) {
+function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, projects, filterTags, statuses, forceCtx, onCreateProject }) {
   const D = useTheme();
   const isEdit = !!initialTask;
   const defaultCtx = forceCtx || (isEdit ? initialTask.ctx : "personal");
@@ -330,6 +335,8 @@ function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, pro
   const [form, setForm] = useState({ subject: "", description: "", priority: "p2", status: "Not Started", due: "", client_id: "", project_id: "", recurring: "none", reminder: false, reminder_at: "" });
   const [selectedTags, setSelectedTags] = useState([]);
   const [ctx, setCtx] = useState(defaultCtx);
+  const [showNewProj, setShowNewProj] = useState(false);
+  const [newProjName, setNewProjName] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -366,6 +373,17 @@ function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, pro
     onSave({ ...form, ctx, tags: selectedTags, due, inbox: !due, client_id: ctx === "personal" ? null : form.client_id || null });
   };
 
+  const handleCreateProj = async () => {
+    if (!newProjName.trim() || !onCreateProject) return;
+    const proj = await onCreateProject({ name: newProjName.trim(), ctx });
+    if (proj) { set("project_id", proj.id); setNewProjName(""); setShowNewProj(false); }
+  };
+
+  const handleClose = () => {
+    if (form.subject.trim()) handleSave();
+    else onClose();
+  };
+
   if (!open) return null;
 
   const inp = { width: "100%", fontSize: 15, padding: "7px 9px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: D.bgRaised, color: D.text, boxSizing: "border-box" };
@@ -377,12 +395,12 @@ function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, pro
   // clients/projects passed as objects [{id,name,ctx,...}]
 
   return (
-    <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 50, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+    <div onClick={handleClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 50, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: D.bgSurface, borderRadius: "16px 16px 0 0", maxHeight: "92%", display: "flex", flexDirection: "column", border: `0.5px solid ${D.borderMed}` }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: D.bgHover, margin: "9px auto 0" }} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 13px 0" }}>
           <div style={{ fontSize: 16, fontWeight: 600, color: D.text }}>{isEdit ? "Edit task" : "New task"}</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: D.textMuted, display: "flex", alignItems: "center" }}>✕</button>
+          <button onClick={handleClose} style={{ background: "none", border: "none", cursor: "pointer", color: D.textMuted, display: "flex", alignItems: "center" }}>✕</button>
         </div>
 
         {!forceCtx && !isEdit && (
@@ -425,10 +443,19 @@ function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, pro
               <input type="date" style={inp} value={form.due} onChange={e => set("due", e.target.value)} />
             </div>
             <div style={row}><label style={lbl}>Project</label>
-              <select style={inp} value={form.project_id || ""} onChange={e => handleProjChange(e.target.value, projects)}>
-                <option value="">— none —</option>
-                {availableProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              {showNewProj ? (
+                <div style={{ display: "flex", gap: 5 }}>
+                  <input value={newProjName} onChange={e => setNewProjName(e.target.value)} onKeyDown={e => e.key === "Enter" && handleCreateProj()} placeholder="Project name" style={{ ...inp, flex: 1 }} autoFocus />
+                  <button onClick={handleCreateProj} style={{ fontSize: 13, padding: "5px 8px", borderRadius: 8, border: "none", background: D.accent, color: "white", cursor: "pointer" }}>Add</button>
+                  <button onClick={() => setShowNewProj(false)} style={{ fontSize: 13, padding: "5px 7px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.textMuted, cursor: "pointer" }}>✕</button>
+                </div>
+              ) : (
+                <select style={inp} value={form.project_id || ""} onChange={e => { if (e.target.value === "__new__") setShowNewProj(true); else handleProjChange(e.target.value, projects); }}>
+                  <option value="">— none —</option>
+                  {availableProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  <option value="__new__">+ New project…</option>
+                </select>
+              )}
             </div>
           </div>
           {!isPersonal && (
@@ -478,10 +505,7 @@ function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, pro
                Delete
             </button>
           ) : <div />}
-          <div style={{ display: "flex", gap: 7 }}>
-            <button onClick={onClose} style={{ fontSize: 14, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.text, cursor: "pointer" }}>Cancel</button>
-            <button onClick={handleSave} style={{ fontSize: 14, padding: "5px 12px", borderRadius: 8, border: "none", background: D.accent, color: "white", cursor: "pointer", fontWeight: 500 }}>Save task</button>
-          </div>
+          <div style={{ fontSize: 13, color: D.textFaint, display: "flex", alignItems: "center" }}>tap outside to save</div>
         </div>
       </div>
     </div>
@@ -699,7 +723,7 @@ export default function TaskFlow() {
   const [clients, setClients] = useState([]); // [{id, name, ctx}]
   const [projects, setProjects] = useState([]); // [{id, name, ctx, client_id, archived}]
   const [taskTypes, setTaskTypes] = useState(["Phone Call", "Research", "Shopping", "Admin", "Other"]);
-  const [filterTags, setFilterTags] = useState(["5 min task", "Online Shopping", "Waiting on", "Quick win"]);
+  const [filterTags, setFilterTags] = useState(["5 min task", "Online Shopping", "Waiting on", "Quick win", "Email"]);
   const [statuses, setStatuses] = useState(["Not Started", "Working", "Waiting", "Complete", "Deferred"]);
   const [gmailTokens, setGmailTokens] = useState([]);
   const [gmailEmails, setGmailEmails] = useState({});     // { tokenId: [emailObj] }
@@ -955,6 +979,7 @@ export default function TaskFlow() {
       prefill: {
         subject: email.subject,
         description: `From: ${senderName}\n\n${body}`.trim(),
+        tags: ["Email"],
       },
     });
   }
@@ -983,7 +1008,7 @@ export default function TaskFlow() {
 
   // ── End Gmail helpers ─────────────────────────────────────────────────────
 
-  const inboxCount = tasks.filter(t => !t.done && t.inbox).length;
+  const inboxCount = tasks.filter(t => !t.done && t.inbox && t.ctx === globalCtx).length;
 
   function applyFilters(list, f, s) {
     if (f.pri !== "all") list = list.filter(t => t.priority === f.pri);
@@ -1052,9 +1077,12 @@ export default function TaskFlow() {
       reminder_at: form.reminder_at || null,
       recurring: form.recurring || "none",
     };
+    if (payload.status === "Complete") {
+      payload.done = true;
+      payload.done_at = payload.done_at || TODAY;
+    }
     if (isEdit) {
-      payload.done = drawer.task.done;
-      payload.done_at = drawer.task.done_at;
+      if (!payload.done) { payload.done = drawer.task.done; payload.done_at = drawer.task.done_at; }
       const { data, error } = await supabase.from("tasks").update(payload).eq("id", drawer.task.id).select().single();
       if (error) { console.error("saveTask error:", error.message); return; }
       if (data) setTasks(ts => ts.map(t => t.id === data.id ? data : t));
@@ -1089,7 +1117,16 @@ export default function TaskFlow() {
     // Handle recurring
     if (task?.recurring && task.recurring !== "none") {
       const { id: _id, created_at: _ca, ...rest } = task;
-      const newTask = { ...rest, user_id: user.id, done: false, done_at: null, status: "Not Started" };
+      let nextDue = rest.due;
+      if (nextDue) {
+        const d = new Date(nextDue + "T00:00:00");
+        if (rest.recurring === "daily") d.setDate(d.getDate() + 1);
+        else if (rest.recurring === "weekly") d.setDate(d.getDate() + 7);
+        else if (rest.recurring === "monthly") d.setMonth(d.getMonth() + 1);
+        else if (rest.recurring === "yearly") d.setFullYear(d.getFullYear() + 1);
+        nextDue = d.toLocaleDateString("en-CA");
+      }
+      const newTask = { ...rest, user_id: user.id, done: false, done_at: null, status: "Not Started", due: nextDue, inbox: !nextDue };
       const { data: nd } = await supabase.from("tasks").insert(newTask).select().single();
       if (nd) setTasks(ts => [...ts, nd]);
     }
@@ -1147,45 +1184,71 @@ export default function TaskFlow() {
     setTasks(ts => ts.filter(t => t.id !== id));
   };
 
-  function renderTaskList(list, draggable = false) {
-    if (!list.length) return <div style={{ textAlign: "center", padding: 44, color: D.textMuted, fontSize: 15 }}>✓ Nothing here</div>;
+  function renderTaskList(list) {
+    if (!list.length) return null;
     return list.map(t => (
       <TaskRow key={t.id} task={t} clientLabel={clientName(t.client_id)} onDone={toggleDone} onEdit={openEdit} onDelete={removeTask}
         onSelect={toggleSelect} isSelected={selectedIds.has(t.id)}
-        draggable={draggable && selectedIds.size === 0}
-        onDragStart={() => { dragSrc.current = t.id; }}
-        onDrop={() => {
-          if (dragSrc.current === t.id) return;
-          const srcId = dragSrc.current; dragSrc.current = null;
-          setTasks(ts => {
-            const arr = [...ts]; const si = arr.findIndex(x => x.id === srcId); const ti = arr.findIndex(x => x.id === t.id);
-            const [m] = arr.splice(si, 1); arr.splice(ti, 0, m);
-            return [...arr];
-          });
-        }}
       />
     ));
+  }
+
+  function getDoneList() {
+    let list = tasks.filter(t => t.done && t.ctx === globalCtx);
+    if (view === "inbox") list = list.filter(t => t.done_at === TODAY);
+    else if (view === "today") list = list.filter(t => t.done_at === TODAY);
+    else if (view === "tomorrow") list = list.filter(t => t.due === TOMORROW);
+    else if (view === "client") list = list.filter(t => t.client_id === currentClient);
+    else if (view === "tag-view") list = list.filter(t => (t.tags || []).includes(currentTag));
+    else if (view === "week") { const r = weekRange(); list = list.filter(t => inRange(t.due, r.start, r.end)); }
+    else if (view === "month") { const r = monthRange(0); list = list.filter(t => inRange(t.due, r.start, r.end)); }
+    return list.sort((a, b) => (b.done_at || "") > (a.done_at || "") ? 1 : -1);
+  }
+
+  function renderSplitTasks(activeList, doneList = []) {
+    const hasActive = activeList.length > 0;
+    const hasDone = doneList.length > 0;
+    if (!hasActive && !hasDone) return <div style={{ textAlign: "center", padding: 44, color: D.textMuted, fontSize: 15 }}>✓ Nothing here</div>;
+    return (
+      <div>
+        {hasActive ? renderTaskList(activeList) : <div style={{ textAlign: "center", padding: 28, color: D.textMuted, fontSize: 14 }}>✓ All done!</div>}
+        {hasDone && (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 13px" }}>
+              <div style={{ flex: 1, height: "0.5px", background: D.completedDivider }} />
+              <span style={{ fontSize: 11, fontWeight: 600, color: D.textFaint, textTransform: "uppercase", letterSpacing: "0.07em" }}>Completed</span>
+              <div style={{ flex: 1, height: "0.5px", background: D.completedDivider }} />
+            </div>
+            {renderTaskList(doneList)}
+          </div>
+        )}
+      </div>
+    );
   }
 
   function renderTomorrow() {
     const list = tasks.filter(t => !t.done && t.ctx === globalCtx && t.due === TOMORROW);
     const filtered = applyFilters(list, filters);
-    if (!filtered.length) return <div style={{ textAlign: "center", padding: 44, color: D.textMuted, fontSize: 15 }}>✓ Nothing due tomorrow</div>;
-    return [["p1", "High priority"], ["p2", "Medium priority"], ["p3", "Other"]].map(([pri, label]) => {
+    const doneList = tasks.filter(t => t.done && t.ctx === globalCtx && t.due === TOMORROW);
+    const sections = [["p1", "High priority"], ["p2", "Medium priority"], ["p3", "Other"]].map(([pri, label]) => {
       const items = filtered.filter(t => pri === "p3" ? ["p3", "p4"].includes(t.priority) : t.priority === pri);
       if (!items.length) return null;
       return <div key={pri}><SectionHeader>{label}</SectionHeader>{renderTaskList(items)}</div>;
-    });
+    }).filter(Boolean);
+    if (!sections.length && !doneList.length) return <div style={{ textAlign: "center", padding: 44, color: D.textMuted, fontSize: 15 }}>✓ Nothing due tomorrow</div>;
+    return renderSplitTasks(filtered, doneList);
   }
 
   function renderToday() {
     const list = getTaskList();
-    if (!list.length) return <div style={{ textAlign: "center", padding: 44, color: D.textMuted, fontSize: 15 }}>✓ Nothing due today</div>;
-    return [["p1", "High priority"], ["p2", "Medium priority"], ["p3", "Other"]].map(([pri, label]) => {
+    const doneList = getDoneList();
+    const sections = [["p1", "High priority"], ["p2", "Medium priority"], ["p3", "Other"]].map(([pri, label]) => {
       const items = list.filter(t => pri === "p3" ? ["p3", "p4"].includes(t.priority) : t.priority === pri);
       if (!items.length) return null;
       return <div key={pri}><SectionHeader>{label}</SectionHeader>{renderTaskList(items)}</div>;
-    });
+    }).filter(Boolean);
+    if (!sections.length && !doneList.length) return <div style={{ textAlign: "center", padding: 44, color: D.textMuted, fontSize: 15 }}>✓ Nothing due today</div>;
+    return renderSplitTasks(list, doneList);
   }
 
   function renderWeek() {
@@ -1321,7 +1384,7 @@ export default function TaskFlow() {
     const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
     const mName = new Date(calYear, calMonth, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
     const byDate = {};
-    tasks.filter(t => !t.done && t.due).forEach(t => { if (!byDate[t.due]) byDate[t.due] = []; byDate[t.due].push(t); });
+    tasks.filter(t => !t.done && t.due && t.ctx === globalCtx).forEach(t => { if (!byDate[t.due]) byDate[t.due] = []; byDate[t.due].push(t); });
     const empties = firstDay === 0 ? 6 : firstDay - 1;
     const cells = [];
     for (let i = 0; i < empties; i++) cells.push(<div key={"e" + i} />);
@@ -1329,7 +1392,7 @@ export default function TaskFlow() {
       const ds = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const isToday = ds === TODAY, hasTasks = byDate[ds]?.length, isSel = ds === selectedCalDay;
       cells.push(
-        <div key={day} onClick={() => calDayClick(ds)} style={{ fontSize: 14, padding: "6px 2px", cursor: "pointer", borderRadius: 8, textAlign: "center", position: "relative", background: isSel ? D.calSelectedBg : isToday ? D.calTodayBg : "transparent", color: isSel ? D.calSelectedColor : isToday ? D.calTodayColor : D.textMuted, fontWeight: isToday || isSel ? 600 : 400 }}>
+        <div key={day} onClick={() => calDayClick(ds)} style={{ fontSize: 14, padding: "6px 2px", cursor: "pointer", borderRadius: 8, textAlign: "center", position: "relative", background: isSel ? D.accent : isToday ? D.calTodayBg : "transparent", color: isSel ? "white" : isToday ? D.calTodayColor : D.textMuted, fontWeight: isToday || isSel ? 600 : 400 }}>
           {day}
           {hasTasks && <div style={{ width: 4, height: 4, borderRadius: "50%", background: isSel ? D.calSelectedColor : D.calDot, margin: "2px auto 0" }} />}
         </div>
@@ -1535,7 +1598,9 @@ export default function TaskFlow() {
               ))}
             </div>
             <div style={{ display: "flex", gap: 6 }}>
-              <input value={newInputs[s.key] || ""} onChange={e => setNewInputs(n => ({ ...n, [s.key]: e.target.value }))} placeholder="New…" style={inp} />
+              <input value={newInputs[s.key] || ""} onChange={e => setNewInputs(n => ({ ...n, [s.key]: e.target.value }))}
+                onKeyDown={e => { if (e.key === "Enter") { const v = (newInputs[s.key] || "").trim(); if (v && !s.list.includes(v)) { s.setList(l => [...l, v]); setNewInputs(n => ({ ...n, [s.key]: "" })); } } }}
+                placeholder="New…" style={inp} />
               <button onClick={() => { const v = (newInputs[s.key] || "").trim(); if (v && !s.list.includes(v)) { s.setList(l => [...l, v]); setNewInputs(n => ({ ...n, [s.key]: "" })); } }} style={{ fontSize: 14, padding: "5px 10px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.text, cursor: "pointer" }}>+ Add</button>
             </div>
           </div>
@@ -1552,7 +1617,7 @@ export default function TaskFlow() {
             </div>
           ))}
           <div style={{ marginTop: 10, display: "flex", gap: 6 }}>
-            <input value={newClientForm.name} onChange={e => setNewClientForm(f => ({ ...f, name: e.target.value }))} placeholder="Client name" style={inp} />
+            <input value={newClientForm.name} onChange={e => setNewClientForm(f => ({ ...f, name: e.target.value }))} onKeyDown={e => e.key === "Enter" && addClient()} placeholder="Client name" style={inp} />
             <select value={newClientForm.ctx} onChange={e => setNewClientForm(f => ({ ...f, ctx: e.target.value }))} style={{ fontSize: 14, padding: "5px 8px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: D.bg, color: D.text }}>
               <option value="business">Business</option>
               <option value="personal">Personal</option>
@@ -1588,7 +1653,7 @@ export default function TaskFlow() {
             </div>
           )}
           <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-            <input value={newProjForm.name} onChange={e => setNewProjForm(f => ({ ...f, name: e.target.value }))} placeholder="Project name" style={{ ...inp, gridColumn: "1 / -1" }} />
+            <input value={newProjForm.name} onChange={e => setNewProjForm(f => ({ ...f, name: e.target.value }))} onKeyDown={e => e.key === "Enter" && addProject()} placeholder="Project name" style={{ ...inp, gridColumn: "1 / -1" }} />
             <select value={newProjForm.ctx} onChange={e => setNewProjForm(f => ({ ...f, ctx: e.target.value }))} style={inp}>
               <option value="business">Business</option>
               <option value="personal">Personal</option>
@@ -1647,8 +1712,7 @@ export default function TaskFlow() {
     if (view === "project") return renderProject();
     if (view === "today") return renderToday();
     if (view === "tomorrow") return renderTomorrow();
-    const list = getTaskList();
-    return renderTaskList(list, view === "all" && sort === "manual");
+    return renderSplitTasks(getTaskList(), getDoneList());
   }
 
   const mItem = (isActive) => ({
@@ -1766,7 +1830,7 @@ export default function TaskFlow() {
             <div style={{ borderTop: `0.5px solid ${D.border}`, flexShrink: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
               <div onClick={() => navTo("gmail")} style={mItem(view === "gmail")}><Envelope size={16} weight="light" />Gmail</div>
               <div onClick={() => navTo("settings")} style={mItem(view === "settings")}><Gear size={16} weight="light" />Settings</div>
-              <div onClick={() => supabase.auth.signOut()} style={{ ...mItem(false), color: D.textFaint, fontSize: 13 }}>Sign out</div>
+              <div onClick={() => { if (window.confirm("Sign out of Poised?")) supabase.auth.signOut(); }} style={{ ...mItem(false), color: D.textFaint, fontSize: 13 }}>Sign out</div>
             </div>
           </div>
 
@@ -1809,6 +1873,7 @@ export default function TaskFlow() {
           {/* MAIN CONTENT */}
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             {renderMainContent()}
+            <div style={{ height: 90 }} />
           </div>
 
           {/* UNDO TOAST */}
@@ -1886,7 +1951,9 @@ export default function TaskFlow() {
           {/* FAB */}
           {showFab && (
             <button onClick={openNewTask} aria-label="New task"
-              style={{ position: "absolute", bottom: "calc(80px + env(safe-area-inset-bottom))", right: 24, width: 52, height: 52, borderRadius: "50%", background: D.accent, border: "none", color: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: `0 2px 12px ${D.accentShadow}`, zIndex: 10 }}>
+              onTouchStart={e => e.currentTarget.style.transform = "scale(0.91)"}
+              onTouchEnd={e => e.currentTarget.style.transform = "scale(1)"}
+              style={{ position: "absolute", bottom: "calc(80px + env(safe-area-inset-bottom))", right: 24, width: 52, height: 52, borderRadius: "50%", background: D.accent, border: "none", color: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: `0 2px 12px ${D.accentShadow}`, zIndex: 10, transition: "transform 0.1s ease" }}>
               <svg width="20" height="20" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <line x1="13" y1="3" x2="13" y2="23" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
                 <line x1="3" y1="13" x2="23" y2="13" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
@@ -1902,7 +1969,7 @@ export default function TaskFlow() {
                 <button key={id} onClick={() => navTo(id)}
                   style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, fontSize: 12, fontWeight: active ? 500 : 400, color: active ? D.accent : D.textMuted, cursor: "pointer", border: "none", background: "transparent", padding: "4px 2px", transition: "all .15s", position: "relative" }}>
                   {id === "inbox" && inboxCount > 0 && (
-                    <span style={{ position: "absolute", top: 6, right: "calc(50% - 20px)", background: D.danger, color: "white", fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "1px 5px", lineHeight: 1.4 }}>{inboxCount}</span>
+                    <span style={{ position: "absolute", top: 6, right: "calc(50% - 20px)", background: D.accent, color: "white", fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "1px 5px", lineHeight: 1.4 }}>{inboxCount}</span>
                   )}
                   <Icon size={26} weight="light" />
                   <span>{label}</span>
@@ -1923,6 +1990,12 @@ export default function TaskFlow() {
             filterTags={filterTags}
             statuses={statuses}
             forceCtx={drawer.forceCtx}
+            onCreateProject={async ({ name, ctx }) => {
+              const payload = { user_id: user.id, name, ctx, archived: false };
+              const { data } = await supabase.from("projects").insert(payload).select().single();
+              if (data) setProjects(ps => [...ps, data]);
+              return data;
+            }}
           />
         </div>
       </div>
