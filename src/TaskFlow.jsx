@@ -1226,7 +1226,7 @@ export default function TaskFlow() {
 
   function getTaskList() {
     let list = tasks.filter(t => !t.done && t.ctx === globalCtx);
-    if (view === "inbox") list = list.filter(t => t.inbox);
+    if (view === "inbox") list = list.filter(t => t.inbox && t.status !== "Deferred");
     else if (view === "today") list = list.filter(t => t.due === TODAY);
     else if (view === "tomorrow") list = list.filter(t => t.due === TOMORROW);
     else if (view === "business") list = list.filter(t => t.ctx === "business");
