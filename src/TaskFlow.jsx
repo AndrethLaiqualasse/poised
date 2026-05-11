@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, createContext, useContext } from "react";
-import { Tray, CalendarDot, CalendarPlus, CalendarDots, CalendarBlank, SquaresFour, Calendar, CheckCircle, FolderSimple, Hash, Gear, Envelope, UserCircle, Briefcase, ArrowCounterClockwise, ArrowsClockwise } from "@phosphor-icons/react";
+import { Tray, CalendarDot, CalendarPlus, CalendarDots, CalendarBlank, SquaresFour, Calendar, CheckCircle, FolderSimple, Hash, Gear, Envelope, UserCircle, Briefcase, ArrowCounterClockwise, ArrowsClockwise, ClockCounterClockwise } from "@phosphor-icons/react";
 import { supabase } from "./supabase.js";
 
 // Load Tabler icons from CDN
@@ -1242,7 +1242,7 @@ export default function TaskFlow() {
   const showFab = !["settings", "gmail"].includes(view);
   const showFilters = VIEWS_WITH_FILTERS.includes(view);
 
-  const viewTitles = { inbox: "Inbox", today: "Today", tomorrow: "Tomorrow", all: "All Tasks", week: "This Week", month: "This Month", cal: "Calendar", recurring: "Recurring", completed: "Completed", business: "Business", personal: "Personal", gmail: "Gmail", settings: "Settings", client: clientName(currentClient), project: projectById(currentProj)?.name || currentProj, "tag-view": `#${currentTag}` };
+  const viewTitles = { inbox: "Inbox", today: "Today", tomorrow: "Tomorrow", all: "All Tasks", week: "This Week", month: "This Month", cal: "Calendar", recurring: "Recurring", deferred: "Deferred", completed: "Completed", business: "Business", personal: "Personal", gmail: "Gmail", settings: "Settings", client: clientName(currentClient), project: projectById(currentProj)?.name || currentProj, "tag-view": `#${currentTag}` };
 
   const removeTask = async (id) => {
     await supabase.from("tasks").delete().eq("id", id);
@@ -1442,6 +1442,14 @@ export default function TaskFlow() {
     setCalDayLabel(dt.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }));
     setCalDayTasks(list);
     setSelectedCalDay(ds);
+  }
+
+  function renderDeferred() {
+    const list = tasks
+      .filter(t => !t.done && t.status === "Deferred" && t.ctx === globalCtx)
+      .sort((a, b) => (a.due || "").localeCompare(b.due || "") || a.subject.localeCompare(b.subject));
+    if (!list.length) return <div style={{ textAlign: "center", padding: 44, color: D.textMuted, fontSize: 15 }}>No deferred tasks</div>;
+    return renderTaskList(list);
   }
 
   function renderRecurring() {
@@ -1792,6 +1800,7 @@ export default function TaskFlow() {
     if (view === "completed") return renderCompleted();
     if (view === "cal") return renderCalendar();
     if (view === "recurring") return renderRecurring();
+    if (view === "deferred") return renderDeferred();
     if (view === "week") return renderWeek();
     if (view === "month") return renderMonth();
     if (view === "project") return renderProject();
@@ -1863,6 +1872,7 @@ export default function TaskFlow() {
                   { id: "all", label: "All Tasks", icon: SquaresFour },
                   { id: "cal", label: "Calendar", icon: Calendar },
                   { id: "recurring", label: "Recurring", icon: ArrowsClockwise },
+                  { id: "deferred", label: "Deferred", icon: ClockCounterClockwise },
                   { id: "completed", label: "Completed", icon: CheckCircle },
                 ].map(m => (
                   <div key={m.id} onClick={() => navTo(m.id)} style={mItem(view === m.id)}><m.icon size={16} weight="light" />{m.label}</div>
