@@ -784,13 +784,27 @@ export default function TaskFlow() {
       if (g) setGmailTokens(g);
 
       const { data: s, error: sErr } = await supabase.from("user_settings").select("*").eq("user_id", user.id).maybeSingle();
-      if (sErr) { console.error("Settings load failed:", sErr.message); }
-      console.log("Loaded settings row:", s);
-      if (s) {
-        if (Array.isArray(s.filter_tags)) setFilterTags(s.filter_tags);
-        if (Array.isArray(s.statuses)) setStatuses(s.statuses);
-        if (Array.isArray(s.task_types)) setTaskTypes(s.task_types);
-      }
+      if (sErr) console.error("Settings load failed:", sErr.message);
+
+      // Determine which values to use — loaded or hardcoded defaults
+      const resolvedTags  = s && Array.isArray(s.filter_tags) ? s.filter_tags : ["5 min task", "Online Shopping", "Waiting on", "Quick win", "Email"];
+      const resolvedSts   = s && Array.isArray(s.statuses)    ? s.statuses    : ["Not Started", "Working", "Waiting", "Complete", "Deferred"];
+      const resolvedTypes = s && Array.isArray(s.task_types)  ? s.task_types  : ["Phone Call", "Research", "Shopping", "Admin", "Other"];
+
+      setFilterTags(resolvedTags);
+      setStatuses(resolvedSts);
+      setTaskTypes(resolvedTypes);
+
+      // Always upsert so the row definitely exists for future saves
+      const { error: saveErr } = await supabase.from("user_settings").upsert({
+        user_id: user.id,
+        filter_tags: resolvedTags,
+        statuses: resolvedSts,
+        task_types: resolvedTypes,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+      if (saveErr) console.error("Settings init save failed:", saveErr.message);
+
       settingsLoaded.current = true;
     };
     load();
