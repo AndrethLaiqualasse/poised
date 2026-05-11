@@ -173,7 +173,7 @@ function FilterDropdown({ filters, setFilters, filterTags, statuses, extraGroups
 }
 
 // ── SORT DROPDOWN ────────────────────────────────────────────────────────
-function SortDropdown({ sort, setSort }) {
+function SortDropdown({ sort, setSort, sortDir, setSortDir }) {
   const D = useTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -184,7 +184,7 @@ function SortDropdown({ sort, setSort }) {
   }, []);
   const opts = [["pri", "Priority"], ["due", "Due date"], ["status", "Status"]];
   const activeLabel = opts.find(([v]) => v === sort)?.[1] || "Due date";
-  const isActive = sort !== "due";
+  const isActive = sort !== "due" || sortDir !== "asc";
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button onClick={() => setOpen(o => !o)} title="Sort"
@@ -192,16 +192,23 @@ function SortDropdown({ sort, setSort }) {
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="15" y2="12" /><line x1="3" y1="18" x2="9" y2="18" />
         </svg>
-        {isActive && <span style={{ fontSize: 12 }}>{activeLabel}</span>}
+        {isActive && <span style={{ fontSize: 12 }}>{activeLabel} {sortDir === "desc" ? "↓" : "↑"}</span>}
       </button>
       {open && (
-        <div style={{ position: "absolute", right: 0, top: "100%", width: 160, background: D.bgRaised, border: `0.5px solid ${D.borderMed}`, borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.5)", zIndex: 100, padding: "6px 0" }}>
+        <div style={{ position: "absolute", right: 0, top: "100%", width: 170, background: D.bgRaised, border: `0.5px solid ${D.borderMed}`, borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.5)", zIndex: 100, padding: "6px 0" }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: D.textFaint, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 12px 6px" }}>Sort by</div>
           {opts.map(([val, label]) => (
             <div key={val} onClick={() => { setSort(val); setOpen(false); }}
               style={{ fontSize: 15, padding: "8px 12px", cursor: "pointer", color: sort === val ? D.accent : D.text, background: sort === val ? D.accentBg : "transparent", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              {label}
-              {sort === val && "✓"}
+              {label}{sort === val && " ✓"}
+            </div>
+          ))}
+          <div style={{ borderTop: `0.5px solid ${D.border}`, margin: "4px 0" }} />
+          <div style={{ fontSize: 12, fontWeight: 600, color: D.textFaint, textTransform: "uppercase", letterSpacing: "0.05em", padding: "4px 12px 6px" }}>Direction</div>
+          {[["asc", "↑ Ascending"], ["desc", "↓ Descending"]].map(([val, label]) => (
+            <div key={val} onClick={() => { setSortDir(val); setOpen(false); }}
+              style={{ fontSize: 15, padding: "8px 12px", cursor: "pointer", color: sortDir === val ? D.accent : D.text, background: sortDir === val ? D.accentBg : "transparent", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              {label}{sortDir === val && " ✓"}
             </div>
           ))}
         </div>
@@ -667,8 +674,10 @@ export default function TaskFlow() {
   const [drawer, setDrawer] = useState({ open: false, task: null, forceCtx: null, prefill: {} });
   const [contextFilters, setContextFilters] = useState({ business: { ...EMPTY_FILTERS }, personal: { ...EMPTY_FILTERS } });
   const [contextSort, setContextSort] = useState({ business: EMPTY_SORT, personal: EMPTY_SORT });
+  const [contextSortDir, setContextSortDir] = useState({ business: "asc", personal: "asc" });
   const [filters, setFiltersRaw] = useState({ ...EMPTY_FILTERS });
   const [sort, setSortRaw] = useState(EMPTY_SORT);
+  const [sortDir, setSortDirRaw] = useState("asc");
 
   function setFilters(f) {
     setFiltersRaw(f);
@@ -677,6 +686,10 @@ export default function TaskFlow() {
   function setSort(s) {
     setSortRaw(s);
     setContextSort(cs => ({ ...cs, [globalCtx]: s }));
+  }
+  function setSortDir(d) {
+    setSortDirRaw(d);
+    setContextSortDir(cd => ({ ...cd, [globalCtx]: d }));
   }
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkAction, setBulkAction] = useState(null); // null | "pri" | "status" | "due"
@@ -1086,9 +1099,10 @@ export default function TaskFlow() {
     else if (f.date === "this-month") { const r = monthRange(0); list = list.filter(t => inRange(t.due, r.start, r.end)); }
     else if (f.date === "next-month") { const r = monthRange(1); list = list.filter(t => inRange(t.due, r.start, r.end)); }
     const sortKey = s !== undefined ? s : sort;
-    if (sortKey === "pri") { const o = { p1: 0, p2: 1, p3: 2, p4: 3 }; list = [...list].sort((a, b) => (o[a.priority] || 3) - (o[b.priority] || 3)); }
-    else if (sortKey === "due") list = [...list].sort((a, b) => (a.due || "9999") > (b.due || "9999") ? 1 : -1);
-    else if (sortKey === "status") list = [...list].sort((a, b) => statuses.indexOf(a.status) - statuses.indexOf(b.status));
+    const dir = sortDir === "desc" ? -1 : 1;
+    if (sortKey === "pri") { const o = { p1: 0, p2: 1, p3: 2, p4: 3 }; list = [...list].sort((a, b) => dir * ((o[a.priority] || 3) - (o[b.priority] || 3))); }
+    else if (sortKey === "due") list = [...list].sort((a, b) => dir * ((a.due || "9999") > (b.due || "9999") ? 1 : -1));
+    else if (sortKey === "status") list = [...list].sort((a, b) => dir * (statuses.indexOf(a.status) - statuses.indexOf(b.status)));
     return list;
   }
 
@@ -1209,19 +1223,21 @@ export default function TaskFlow() {
 
   function navToTag(tag) {
     setCurrentTag(tag); setView("tag-view"); setMenuOpen(false);
-    setFiltersRaw({ ...EMPTY_FILTERS }); setSortRaw(EMPTY_SORT);
+    setFiltersRaw({ ...EMPTY_FILTERS }); setSortRaw(EMPTY_SORT); setSortDirRaw("asc");
   }
 
   function navTo(v, client = "", proj = "") {
     setView(v); setCurrentClient(client); setCurrentProj(proj); setMenuOpen(false);
     setFiltersRaw(contextFilters[globalCtx] || { ...EMPTY_FILTERS });
     setSortRaw(contextSort[globalCtx] || EMPTY_SORT);
+    setSortDirRaw(contextSortDir[globalCtx] || "asc");
   }
 
   function switchCtxGlobal(ctx) {
     setGlobalCtx(ctx);
     setFiltersRaw(contextFilters[ctx] || { ...EMPTY_FILTERS });
     setSortRaw(contextSort[ctx] || EMPTY_SORT);
+    setSortDirRaw(contextSortDir[ctx] || "asc");
   }
 
   function getTaskList() {
@@ -1942,7 +1958,7 @@ export default function TaskFlow() {
             )}
             {showFilters && (
               <>
-                <SortDropdown sort={sort} setSort={setSort} />
+                <SortDropdown sort={sort} setSort={setSort} sortDir={sortDir} setSortDir={setSortDir} />
                 <FilterDropdown filters={filters} setFilters={setFilters} filterTags={filterTags} statuses={statuses}
                   extraGroups={view === "completed" ? [
                     { key: "proj", label: "Project", opts: [["all", "Any"], ...projects.map(p => [p.id, p.name])] },
