@@ -784,9 +784,9 @@ export default function TaskFlow() {
       if (c) setClients(c);
       if (g) setGmailTokens(g);
       if (s) {
-        if (s.filter_tags?.length) setFilterTags(s.filter_tags);
-        if (s.statuses?.length) setStatuses(s.statuses);
-        if (s.task_types?.length) setTaskTypes(s.task_types);
+        if (Array.isArray(s.filter_tags)) setFilterTags(s.filter_tags);
+        if (Array.isArray(s.statuses)) setStatuses(s.statuses);
+        if (Array.isArray(s.task_types)) setTaskTypes(s.task_types);
       }
       settingsLoaded.current = true;
     };
@@ -802,8 +802,9 @@ export default function TaskFlow() {
       statuses,
       task_types: taskTypes,
       updated_at: new Date().toISOString(),
-    }, { onConflict: "user_id" });
-  }, [filterTags, statuses, taskTypes]);
+    }, { onConflict: "user_id" })
+      .then(({ error }) => { if (error) console.error("Settings save failed:", error.message); });
+  }, [filterTags, statuses, taskTypes, user]);
 
   // Handle Gmail OAuth callback (detects ?code= in URL after Google redirect)
   const gmailCallbackHandled = useRef(false);
