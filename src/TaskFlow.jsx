@@ -459,7 +459,10 @@ function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, pro
           </div>
           <div style={grid}>
             <div style={row}><label style={lbl}>Due date <span style={{ fontWeight: 400, color: D.textFaint }}>(optional)</span></label>
-              <input type="date" style={inp} value={form.due} onChange={e => set("due", e.target.value)} />
+              <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                <input type="date" style={{ ...inp, flex: 1 }} value={form.due} onChange={e => set("due", e.target.value)} />
+                {form.due && <button onClick={() => set("due", "")} style={{ background: "none", border: "none", cursor: "pointer", color: D.textFaint, fontSize: 18, lineHeight: 1, padding: "0 2px", flexShrink: 0 }}>×</button>}
+              </div>
             </div>
             <div style={row}><label style={lbl}>Project</label>
               {showNewProj ? (
