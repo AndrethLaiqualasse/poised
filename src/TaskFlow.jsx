@@ -772,17 +772,20 @@ export default function TaskFlow() {
       const cutoffStr = cutoff.toLocaleDateString("en-CA");
       await supabase.from("tasks").delete().eq("done", true).lt("done_at", cutoffStr);
 
-      const [{ data: t }, { data: p }, { data: c }, { data: g }, { data: s }] = await Promise.all([
+      const [{ data: t }, { data: p }, { data: c }, { data: g }] = await Promise.all([
         supabase.from("tasks").select("*").order("created_at", { ascending: true }),
         supabase.from("projects").select("*").order("name", { ascending: true }),
         supabase.from("clients").select("*").order("name", { ascending: true }),
         supabase.from("gmail_tokens").select("*"),
-        supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
       ]);
       if (t) setTasks(t);
       if (p) setProjects(p);
       if (c) setClients(c);
       if (g) setGmailTokens(g);
+
+      const { data: s, error: sErr } = await supabase.from("user_settings").select("*").eq("user_id", user.id).maybeSingle();
+      if (sErr) { console.error("Settings load failed:", sErr.message); }
+      console.log("Loaded settings row:", s);
       if (s) {
         if (Array.isArray(s.filter_tags)) setFilterTags(s.filter_tags);
         if (Array.isArray(s.statuses)) setStatuses(s.statuses);
