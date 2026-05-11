@@ -783,8 +783,9 @@ export default function TaskFlow() {
       if (c) setClients(c);
       if (g) setGmailTokens(g);
 
-      const { data: s, error: sErr } = await supabase.from("user_settings").select("*").eq("user_id", user.id).maybeSingle();
+      const { data: sArr, error: sErr } = await supabase.from("user_settings").select("*").eq("user_id", user.id);
       if (sErr) console.error("Settings load failed:", sErr.message);
+      const s = sArr?.[0] ?? null;
 
       // Determine which values to use — loaded or hardcoded defaults
       const resolvedTags  = s && Array.isArray(s.filter_tags) ? s.filter_tags : ["5 min task", "Online Shopping", "Waiting on", "Quick win", "Email"];
