@@ -743,7 +743,6 @@ export default function TaskFlow() {
 
   const [clients, setClients] = useState([]); // [{id, name, ctx}]
   const [projects, setProjects] = useState([]); // [{id, name, ctx, client_id, archived}]
-  const [taskTypes, setTaskTypes] = useState(["Phone Call", "Research", "Shopping", "Admin", "Other"]);
   const [filterTags, setFilterTags] = useState(["5 min task", "Online Shopping", "Waiting on", "Quick win", "Email"]);
   const [statuses, setStatuses] = useState(["Not Started", "Working", "Waiting", "Complete", "Deferred"]);
   const settingsLoaded = useRef(false);
@@ -788,20 +787,17 @@ export default function TaskFlow() {
       const s = sArr?.[0] ?? null;
 
       // Determine which values to use — loaded or hardcoded defaults
-      const resolvedTags  = s && Array.isArray(s.filter_tags) ? s.filter_tags : ["5 min task", "Online Shopping", "Waiting on", "Quick win", "Email"];
-      const resolvedSts   = s && Array.isArray(s.statuses)    ? s.statuses    : ["Not Started", "Working", "Waiting", "Complete", "Deferred"];
-      const resolvedTypes = s && Array.isArray(s.task_types)  ? s.task_types  : ["Phone Call", "Research", "Shopping", "Admin", "Other"];
+      const resolvedTags = s && Array.isArray(s.filter_tags) ? s.filter_tags : ["5 min task", "Online Shopping", "Waiting on", "Quick win", "Email"];
+      const resolvedSts  = s && Array.isArray(s.statuses)    ? s.statuses    : ["Not Started", "Working", "Waiting", "Complete", "Deferred"];
 
       setFilterTags(resolvedTags);
       setStatuses(resolvedSts);
-      setTaskTypes(resolvedTypes);
 
       // Always upsert so the row definitely exists for future saves
       const { error: saveErr } = await supabase.from("user_settings").upsert({
         user_id: user.id,
         filter_tags: resolvedTags,
         statuses: resolvedSts,
-        task_types: resolvedTypes,
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
       if (saveErr) console.error("Settings init save failed:", saveErr.message);
@@ -818,11 +814,10 @@ export default function TaskFlow() {
       user_id: user.id,
       filter_tags: filterTags,
       statuses,
-      task_types: taskTypes,
       updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" })
       .then(({ error }) => { if (error) console.error("Settings save failed:", error.message); });
-  }, [filterTags, statuses, taskTypes, user]);
+  }, [filterTags, statuses, user]);
 
   // Handle Gmail OAuth callback (detects ?code= in URL after Google redirect)
   const gmailCallbackHandled = useRef(false);
@@ -1628,7 +1623,6 @@ export default function TaskFlow() {
   function renderSettings() {
     const strSections = [
       { label: "Statuses", key: "st", list: statuses, setList: setStatuses },
-      { label: "Task Types", key: "ty", list: taskTypes, setList: setTaskTypes },
       { label: "Filter Tags", key: "ft", list: filterTags, setList: setFilterTags },
     ];
     const inp = { flex: 1, fontSize: 14, padding: "5px 9px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: D.bg, color: D.text };
