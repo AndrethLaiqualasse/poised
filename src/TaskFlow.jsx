@@ -1224,7 +1224,7 @@ export default function TaskFlow() {
 
   function getDoneList() {
     let list = tasks.filter(t => t.done && t.ctx === globalCtx);
-    if (view === "inbox") list = list.filter(t => t.done_at === TODAY);
+    if (view === "inbox") list = list.filter(t => t.inbox && t.done_at === TODAY);
     else if (view === "today") list = list.filter(t => t.done_at === TODAY);
     else if (view === "tomorrow") list = list.filter(t => t.due === TOMORROW);
     else if (view === "client") list = list.filter(t => t.client_id === currentClient);
