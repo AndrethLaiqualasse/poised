@@ -1334,7 +1334,7 @@ export default function TaskFlow() {
       <div>
         <div style={{ padding: 13, borderBottom: `0.5px solid ${D.border}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: D.text }}>{currentProj}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: D.text }}>{proj?.name || currentProj}</div>
             <button onClick={async () => { await archiveProject(currentProj, !proj?.archived); navTo("inbox"); }}
               style={{ fontSize: 12, padding: "3px 10px", borderRadius: 8, border: `0.5px solid ${D.borderMed}`, background: "transparent", color: D.textMuted, cursor: "pointer" }}>
               {proj?.archived ? "Restore" : "Archive"}
@@ -1847,7 +1847,7 @@ export default function TaskFlow() {
                   <span style={{ fontSize: 14, transition: "transform .2s", display: "inline-block", transform: accordionOpen.projects ? "rotate(90deg)" : "rotate(0deg)", color: D.textFaint }}>›</span>
                 </div>
                 {accordionOpen.projects && projects.filter(p => !p.archived).map(p => (
-                  <div key={p.name} onClick={() => navTo("project", "", p.name)} style={mItem(view === "project" && currentProj === p.name)}>{p.name}</div>
+                  <div key={p.id} onClick={() => navTo("project", "", p.id)} style={mItem(view === "project" && currentProj === p.id)}>{p.name}</div>
                 ))}
                 {accordionOpen.projects && projects.some(p => p.archived) && (
                   <div style={{ paddingLeft: 8 }}>
@@ -1856,7 +1856,7 @@ export default function TaskFlow() {
                       <span style={{ fontSize: 12, transition: "transform .2s", display: "inline-block", transform: accordionOpen.archivedProjects ? "rotate(90deg)" : "rotate(0deg)" }}>›</span>
                     </div>
                     {accordionOpen.archivedProjects && projects.filter(p => p.archived).map(p => (
-                      <div key={p.name} onClick={() => navTo("project", "", p.name)} style={{ ...mItem(view === "project" && currentProj === p.name), opacity: 0.5, paddingLeft: 8 }}>{p.name}</div>
+                      <div key={p.id} onClick={() => navTo("project", "", p.id)} style={{ ...mItem(view === "project" && currentProj === p.id), opacity: 0.5, paddingLeft: 8 }}>{p.name}</div>
                     ))}
                   </div>
                 )}
