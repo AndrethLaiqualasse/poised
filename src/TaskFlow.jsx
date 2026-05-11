@@ -746,6 +746,7 @@ export default function TaskFlow() {
   const [taskTypes, setTaskTypes] = useState(["Phone Call", "Research", "Shopping", "Admin", "Other"]);
   const [filterTags, setFilterTags] = useState(["5 min task", "Online Shopping", "Waiting on", "Quick win", "Email"]);
   const [statuses, setStatuses] = useState(["Not Started", "Working", "Waiting", "Complete", "Deferred"]);
+  const settingsLoaded = useRef(false);
   const [gmailTokens, setGmailTokens] = useState([]);
   const [gmailEmails, setGmailEmails] = useState({});     // { tokenId: [emailObj] }
   const [dismissedEmailIds, setDismissedEmailIds] = useState(new Set());
@@ -761,27 +762,48 @@ export default function TaskFlow() {
 
   // Load data from Supabase whenever user changes
   useEffect(() => {
-    if (!user) { setTasks([]); setProjects([]); setClients([]); setGmailTokens([]); return; }
+    if (!user) { setTasks([]); setProjects([]); setClients([]); setGmailTokens([]); settingsLoaded.current = false; return; }
     const load = async () => {
+      settingsLoaded.current = false;
+
       // Purge completed tasks older than 30 days
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - 30);
       const cutoffStr = cutoff.toLocaleDateString("en-CA");
       await supabase.from("tasks").delete().eq("done", true).lt("done_at", cutoffStr);
 
-      const [{ data: t }, { data: p }, { data: c }, { data: g }] = await Promise.all([
+      const [{ data: t }, { data: p }, { data: c }, { data: g }, { data: s }] = await Promise.all([
         supabase.from("tasks").select("*").order("created_at", { ascending: true }),
         supabase.from("projects").select("*").order("name", { ascending: true }),
         supabase.from("clients").select("*").order("name", { ascending: true }),
         supabase.from("gmail_tokens").select("*"),
+        supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
       ]);
       if (t) setTasks(t);
       if (p) setProjects(p);
       if (c) setClients(c);
       if (g) setGmailTokens(g);
+      if (s) {
+        if (s.filter_tags?.length) setFilterTags(s.filter_tags);
+        if (s.statuses?.length) setStatuses(s.statuses);
+        if (s.task_types?.length) setTaskTypes(s.task_types);
+      }
+      settingsLoaded.current = true;
     };
     load();
   }, [user]);
+
+  // Persist settings to Supabase whenever they change (but not before initial load)
+  useEffect(() => {
+    if (!user || !settingsLoaded.current) return;
+    supabase.from("user_settings").upsert({
+      user_id: user.id,
+      filter_tags: filterTags,
+      statuses,
+      task_types: taskTypes,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+  }, [filterTags, statuses, taskTypes]);
 
   // Handle Gmail OAuth callback (detects ?code= in URL after Google redirect)
   const gmailCallbackHandled = useRef(false);
