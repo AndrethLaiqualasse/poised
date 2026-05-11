@@ -1033,6 +1033,8 @@ export default function TaskFlow() {
   // ── End Gmail helpers ─────────────────────────────────────────────────────
 
   const inboxCount = tasks.filter(t => !t.done && t.inbox && t.ctx === globalCtx).length;
+  const todayCount = tasks.filter(t => !t.done && t.status !== "Complete" && t.due === TODAY && t.ctx === globalCtx).length;
+  const tomorrowCount = tasks.filter(t => !t.done && t.status !== "Complete" && t.due === TOMORROW && t.ctx === globalCtx).length;
 
   function applyFilters(list, f, s) {
     if (f.pri !== "all") list = list.filter(t => t.priority === f.pri);
@@ -2016,6 +2018,12 @@ export default function TaskFlow() {
                   style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, fontSize: 12, fontWeight: active ? 500 : 400, color: active ? D.accent : D.textMuted, cursor: "pointer", border: "none", background: "transparent", padding: "4px 2px", transition: "all .15s", position: "relative" }}>
                   {id === "inbox" && inboxCount > 0 && (
                     <span style={{ position: "absolute", top: 6, right: "calc(50% - 20px)", background: D.accent, color: "white", fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "1px 5px", lineHeight: 1.4 }}>{inboxCount}</span>
+                  )}
+                  {id === "today" && todayCount > 0 && (
+                    <span style={{ position: "absolute", top: 6, right: "calc(50% - 20px)", background: D.accent, color: "white", fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "1px 5px", lineHeight: 1.4 }}>{todayCount}</span>
+                  )}
+                  {id === "tomorrow" && tomorrowCount > 0 && (
+                    <span style={{ position: "absolute", top: 6, right: "calc(50% - 20px)", background: D.accent, color: "white", fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "1px 5px", lineHeight: 1.4 }}>{tomorrowCount}</span>
                   )}
                   <Icon size={26} weight="light" />
                   <span>{label}</span>
