@@ -1100,7 +1100,7 @@ export default function TaskFlow() {
     else if (f.date === "next-month") { const r = monthRange(1); list = list.filter(t => inRange(t.due, r.start, r.end)); }
     const sortKey = s !== undefined ? s : sort;
     const dir = sortDir === "desc" ? -1 : 1;
-    if (sortKey === "pri") { const o = { p1: 0, p2: 1, p3: 2, p4: 3 }; list = [...list].sort((a, b) => dir * ((o[a.priority] || 3) - (o[b.priority] || 3))); }
+    if (sortKey === "pri") { const o = { p1: 1, p2: 2, p3: 3, p4: 4 }; list = [...list].sort((a, b) => dir * ((o[a.priority] ?? 4) - (o[b.priority] ?? 4))); }
     else if (sortKey === "due") list = [...list].sort((a, b) => dir * ((a.due || "9999") > (b.due || "9999") ? 1 : -1));
     else if (sortKey === "status") list = [...list].sort((a, b) => dir * (statuses.indexOf(a.status) - statuses.indexOf(b.status)));
     return list;
