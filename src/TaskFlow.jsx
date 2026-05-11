@@ -2041,7 +2041,7 @@ export default function TaskFlow() {
             onClose={closeDrawer}
             initialTask={drawer.task ? { ...drawer.task, ...drawer.prefill } : (Object.keys(drawer.prefill || {}).length ? { ...drawer.prefill } : null)}
             onSave={saveTask}
-            onDelete={removeTask}
+            onDelete={deleteTask}
             clients={clients}
             projects={projects}
             filterTags={filterTags}
