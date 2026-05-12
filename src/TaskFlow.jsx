@@ -1084,7 +1084,7 @@ export default function TaskFlow() {
 
   // ── End Gmail helpers ─────────────────────────────────────────────────────
 
-  const inboxCount = tasks.filter(t => !t.done && t.inbox && t.ctx === globalCtx).length;
+  const inboxCount = tasks.filter(t => !t.done && t.inbox && t.ctx === globalCtx && t.status !== "Deferred").length;
   const todayCount = tasks.filter(t => !t.done && t.status !== "Complete" && t.due === TODAY && t.ctx === globalCtx).length;
   const tomorrowCount = tasks.filter(t => !t.done && t.status !== "Complete" && t.due === TOMORROW && t.ctx === globalCtx).length;
 
