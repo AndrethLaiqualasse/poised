@@ -126,7 +126,7 @@ function FilterDropdown({ filters, setFilters, filterTags, statuses, extraGroups
   const groups = [
     { key: "pri", label: "Priority", opts: [["all", "Any"], ["p1", "High"], ["p2", "Medium"], ["p3", "Low"]] },
     { key: "status", label: "Status", opts: [["all", "Any"], ...statuses.map(s => [s, s])] },
-    { key: "date", label: "Date", opts: [["all", "Any"], ["today", "Today"], ["tomorrow", "Tomorrow"], ["this-week", "This week"], ["next-week", "Next week"], ["this-month", "This month"], ["next-month", "Next month"]] },
+    { key: "date", label: "Date", opts: [["all", "Any"], ["overdue", "Overdue"], ["today", "Today"], ["tomorrow", "Tomorrow"], ["this-week", "This week"], ["next-week", "Next week"], ["this-month", "This month"], ["next-month", "Next month"]] },
     ...extraGroups,
     { key: "tag", label: "Tags", multi: true, opts: [["all", "Any"], ...filterTags.map(t => [t, "#" + t])] },
   ];
@@ -1092,7 +1092,8 @@ export default function TaskFlow() {
     if (f.pri !== "all") list = list.filter(t => t.priority === f.pri);
     if (f.status !== "all") list = list.filter(t => t.status === f.status);
     if (f.tag.length > 0) list = list.filter(t => f.tag.some(tag => (t.tags || []).includes(tag)));
-    if (f.date === "today") list = list.filter(t => t.due === TODAY);
+    if (f.date === "overdue") list = list.filter(t => t.due && t.due < TODAY);
+    else if (f.date === "today") list = list.filter(t => t.due === TODAY);
     else if (f.date === "tomorrow") list = list.filter(t => t.due === TOMORROW);
     else if (f.date === "this-week") { const r = weekRange(); list = list.filter(t => inRange(t.due, r.start, r.end)); }
     else if (f.date === "next-week") { const r = nextWeekRange(); list = list.filter(t => inRange(t.due, r.start, r.end)); }
