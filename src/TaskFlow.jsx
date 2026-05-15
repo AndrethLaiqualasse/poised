@@ -14,8 +14,13 @@ if (typeof document !== "undefined" && !document.getElementById("tabler-icons-cs
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const GMAIL_SCOPES = "https://www.googleapis.com/auth/gmail.modify";
 
-const TODAY = new Date().toLocaleDateString("en-CA");
-const TOMORROW = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString("en-CA"); })();
+let TODAY = new Date().toLocaleDateString("en-CA");
+let TOMORROW = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString("en-CA"); })();
+function recomputeDates() {
+  TODAY = new Date().toLocaleDateString("en-CA");
+  const d = new Date(); d.setDate(d.getDate() + 1);
+  TOMORROW = d.toLocaleDateString("en-CA");
+}
 const PRIORITY_LABELS = { p1: "High", p2: "Medium", p3: "Low", p4: "None" };
 
 // ── THEME CONTEXT ────────────────────────────────────────────────────────────
@@ -771,8 +776,20 @@ export default function TaskFlow() {
   const [newClientForm, setNewClientForm] = useState({ name: "", ctx: "business" });
   const [accordionOpen, setAccordionOpen] = useState({ views: true, clients: false, projects: false, archivedProjects: false, tags: false });
   const [currentTag, setCurrentTag] = useState("");
+  const [loadTrigger, setLoadTrigger] = useState(0);
 
-  // Load data from Supabase whenever user changes
+  // Auto-refresh dates at midnight
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newToday = new Date().toLocaleDateString("en-CA");
+      if (newToday !== TODAY) { recomputeDates(); setLoadTrigger(t => t + 1); }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleRefresh = () => { recomputeDates(); setLoadTrigger(t => t + 1); };
+
+  // Load data from Supabase whenever user changes or refresh is triggered
   useEffect(() => {
     if (!user) { setTasks([]); setProjects([]); setClients([]); setGmailTokens([]); settingsLoaded.current = false; return; }
     const load = async () => {
@@ -818,7 +835,7 @@ export default function TaskFlow() {
       settingsLoaded.current = true;
     };
     load();
-  }, [user]);
+  }, [user, loadTrigger]);
 
   // Persist settings to Supabase whenever they change (but not before initial load)
   useEffect(() => {
@@ -1957,6 +1974,10 @@ export default function TaskFlow() {
                 Clear
               </button>
             )}
+            <button onClick={handleRefresh} title="Refresh"
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: D.textMuted, display: "flex", alignItems: "center" }}>
+              <ArrowsClockwise size={22} weight="light" />
+            </button>
             {showFilters && (
               <>
                 <SortDropdown sort={sort} setSort={setSort} sortDir={sortDir} setSortDir={setSortDir} />
