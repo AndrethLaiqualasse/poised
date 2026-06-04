@@ -1295,7 +1295,7 @@ export default function TaskFlow() {
     return applyFilters(list, filters);
   }
 
-  const VIEWS_WITH_FILTERS = ["all", "inbox", "today", "tomorrow", "business", "personal", "client-view", "week", "month", "tag-view", "completed"];
+  const VIEWS_WITH_FILTERS = ["all", "inbox", "today", "tomorrow", "business", "personal", "client-view", "week", "month", "tag-view", "completed", "client", "project"];
   const showFab = !["settings", "gmail"].includes(view);
   const showFilters = VIEWS_WITH_FILTERS.includes(view);
 
