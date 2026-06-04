@@ -531,6 +531,29 @@ function TaskDrawer({ open, onClose, initialTask, onSave, onDelete, clients, pro
               <span style={{ fontSize: 14, color: D.textMuted }}>{form.reminder ? "On" : "Off"}</span>
               {form.reminder && <input type="datetime-local" style={{ ...inp, flex: 1 }} value={form.reminder_at || ""} onChange={e => set("reminder_at", e.target.value)} />}
             </div>
+            {form.reminder && form.reminder_at && (
+              <button onClick={() => {
+                const dt = new Date(form.reminder_at);
+                const pad = n => String(n).padStart(2, "0");
+                const fmt = d => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+                const end = new Date(dt.getTime() + 60000);
+                const ics = [
+                  "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Poised//Task Reminder//EN",
+                  "BEGIN:VEVENT",
+                  `DTSTART:${fmt(dt)}`, `DTEND:${fmt(end)}`,
+                  `SUMMARY:${form.subject || "Task reminder"}`,
+                  form.description ? `DESCRIPTION:${form.description.replace(/\n/g, "\\n")}` : "",
+                  "BEGIN:VALARM", "TRIGGER:PT0S", "ACTION:DISPLAY", `DESCRIPTION:${form.subject || "Task reminder"}`, "END:VALARM",
+                  "END:VEVENT", "END:VCALENDAR"
+                ].filter(Boolean).join("\r\n");
+                const blob = new Blob([ics], { type: "text/calendar" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a"); a.href = url; a.download = "reminder.ics"; a.click();
+                URL.revokeObjectURL(url);
+              }} style={{ marginTop: 8, fontSize: 13, padding: "5px 12px", borderRadius: 8, border: `0.5px solid ${D.accent}`, background: "transparent", color: D.accent, cursor: "pointer", width: "100%" }}>
+                + Add to Calendar
+              </button>
+            )}
           </div>
         </div>
         {isEdit && (
